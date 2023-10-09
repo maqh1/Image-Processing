@@ -268,7 +268,7 @@ class ImageOperator:
             for i, bit_plane in enumerate(bit_planes):
                 label = QLabel(f"Bit Plane {i}")
                 pixmap = QPixmap.fromImage(bit_plane)
-                # Resize the pixmap to fit within a square of a specific size
+                # Resize the pixmap to fit within a square of a specific size)
                 square_size = self.size
                 if pixmap.width() < pixmap.height():
                     scaled_pixmap = pixmap.scaledToHeight(square_size, Qt.TransformationMode.SmoothTransformation)
@@ -276,7 +276,7 @@ class ImageOperator:
                     scaled_pixmap = pixmap.scaledToWidth(square_size, Qt.TransformationMode.SmoothTransformation)
                 label.setPixmap(scaled_pixmap)
                 labels.append(label)
-            if pixmap.width() < pixmap.height():
+            if bit_planes[0].width() < bit_planes[0].height():
                 count = 0
                 QHBoxLayout = QtWidgets.QHBoxLayout(self)
                 for label in labels:
@@ -313,9 +313,9 @@ class ImageOperator:
                 bitmask = 1 << i
                 # Apply the bitmask and normalize to 0-255
                 bit_plane = ((image_array & bitmask) >> i) * 255
-                bit_plane_image = QImage(bit_plane.data, width, height, QImage.Format.Format_Grayscale8)
+                # Convert the bit plane to a QImage
+                bit_plane_image = ImageOperator.array_to_qimage(bit_plane)
                 bit_planes.append(bit_plane_image)
-
             return bit_planes
 
         def set_size(self, size):
