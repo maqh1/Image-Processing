@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtCore import QObject, QDateTime, Qt
+from PyQt6.QtCore import QObject, QDateTime, Qt, QSize
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
-    QHBoxLayout
+    QHBoxLayout, QCheckBox
 from sympy import symbols, sympify, lambdify
 
 from Dialog import ParametersInputDialog
@@ -183,6 +183,28 @@ class ImageViewer(QtWidgets.QWidget):
         except Exception as e:
             print(e)
 
+    def matrix_transform(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+            self.matrix_transform = ImageOperator.MatrixTransformer((image_info[0], num))
+            self.matrix_transform.show()
+        except Exception as e:
+            print(e)
+
+    def trans_scale_rotate(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+            self.matrix_transform = ImageOperator.MatrixTransform((image_info[0], num))
+            self.matrix_transform.show()
+        except Exception as e:
+            print(e)
+
 
 class ImageOperator:
     @staticmethod
@@ -268,7 +290,7 @@ class ImageOperator:
             for i, bit_plane in enumerate(bit_planes):
                 label = QLabel(f"Bit Plane {i}")
                 pixmap = QPixmap.fromImage(bit_plane)
-                # Resize the pixmap to fit within a square of a specific size)
+                # Resize the pixmap to fit within a square of a specific size
                 square_size = self.size
                 if pixmap.width() < pixmap.height():
                     scaled_pixmap = pixmap.scaledToHeight(square_size, Qt.TransformationMode.SmoothTransformation)
@@ -1152,6 +1174,301 @@ class ImageOperator:
             v_formatted = ["%.2f" % coord for coord in v]
             message = f"速度为 [{v_formatted[1]}, {v_formatted[0]}] (像素/s)"
             QMessageBox.information(self, "速度", message)
+
+    @staticmethod
+    def linear_interpolation(image_array, transform_matrix):
+        if np.linalg.det(transform_matrix) != 0:
+            # 应用变换
+            height, width = image_array.shape
+            site_array = np.zeros((height, width, 2), dtype=np.float64)
+            # 计算每一个点的新坐标
+            for y in range(height):
+                for x in range(width):
+                    site = np.dot(transform_matrix, np.array([x, y, 1]))
+                    site_array[y, x, :] = site[:2] / site[2]
+            # 计算新的图像的范围
+            x_min, x_max = int(np.ceil(np.min(site_array[:, :, 0]))), int(np.floor(np.max(site_array[:, :, 0])))
+            y_min, y_max = int(np.ceil(np.min(site_array[:, :, 1]))), int(np.floor(np.max(site_array[:, :, 1])))
+            # 定义新矩阵
+            new_array = np.zeros((y_max - y_min + 1, x_max - x_min + 1), dtype=np.float64)
+            # 计算逆矩阵
+            transform_matrix_inverse = np.linalg.inv(transform_matrix)
+            # 计算每一个点的原坐标
+            for y in range(y_min, y_max + 1):
+                for x in range(x_min, x_max + 1):
+
+                    original_site = np.dot(transform_matrix_inverse, np.array([x, y, 1]))
+                    original_site = original_site[:2] / original_site[2]
+                    # 判断是否在原图像范围内
+                    if original_site[0] >= 0 and original_site[0] + 1 < width and original_site[1] >= 0 and \
+                            original_site[1] + 1 < height:
+                        # 双线性插值
+                        x_1 = int(original_site[0])
+                        y_1 = int(original_site[1])
+                        x_2 = x_1 + 1
+                        y_2 = y_1 + 1
+                        x_1_weight = x_2 - original_site[0]
+                        x_2_weight = original_site[0] - x_1
+                        y_1_weight = y_2 - original_site[1]
+                        y_2_weight = original_site[1] - y_1
+                        new_array[y - y_min, x - x_min] = x_1_weight * y_1_weight * image_array[
+                            y_1, x_1] + x_2_weight * y_1_weight * image_array[y_1, x_2] + x_1_weight * y_2_weight * \
+                                                          image_array[y_2, x_1] + x_2_weight * y_2_weight * image_array[
+                                                              y_2, x_2]
+                    else:
+                        new_array[y - y_min, x - x_min] = 255
+            return new_array
+        else:
+            raise ValueError("变换矩阵不可逆")
+
+    class MatrixTransformer(QWidget):
+        def __init__(self, image_info):
+            super().__init__()
+
+            self.setWindowTitle("矩阵变换")
+            self.resize(400, 100)
+
+            self.image_label = QLabel(self)
+
+            self.scroll_area = QScrollArea(self)
+            self.scroll_area.setWidgetResizable(True)
+
+            self.scroll_area.setWidget(self.image_label)
+
+            self.matrix_input = QLineEdit(self)
+            self.matrix_input.setPlaceholderText("输入变换矩阵，形如[[1, 0, 0], [0, 1, 0], [0, 0, 1]](齐次变换)")
+
+            self.transform_button = QPushButton('矩阵变换', self)
+            self.transform_button.clicked.connect(self.apply_transformation)
+
+            self.apply_transform = QPushButton('应用变换', self)
+            self.apply_transform.clicked.connect(self.apply_trans)
+
+            layout = QVBoxLayout()
+            layout.addWidget(self.scroll_area)
+
+            matrix_layout = QHBoxLayout()
+            matrix_layout.addWidget(self.matrix_input)
+            matrix_layout.addWidget(self.transform_button)
+            layout.addLayout(matrix_layout)
+
+            layout.addWidget(self.apply_transform)
+            self.setLayout(layout)
+
+            self.qimage = image_info[0]
+            self.image_info = image_info
+
+            self.transformed_image = None
+
+        def apply_trans(self):
+            if self.transformed_image is not None:
+                reply = QMessageBox.question(self, '应用变换', '是否应用该变换？',
+                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if reply == QMessageBox.StandardButton.Yes:
+                    ImagesList.get_instance().imagesList[self.image_info[1]][0] = self.transformed_image
+                    ImageViewer.get_instance().update_images(self.image_info[1])
+                    QMessageBox.information(self, "提示", "变换成功")
+                    self.close()
+            else:
+                QMessageBox.information(self, "提示", "请先进行变换")
+                return
+
+        def apply_transformation(self):
+            matrix_text = self.matrix_input.text()
+            try:
+                transform_matrix = np.array(eval(matrix_text))
+                if not isinstance(transform_matrix, np.ndarray) or transform_matrix.shape != (3, 3):
+                    raise ValueError("不合法的矩阵")
+
+                # 调用linear_interpolation方法
+                image_array = ImageOperator.qimage_to_array(self.qimage)
+                new_array = ImageOperator.linear_interpolation(image_array, transform_matrix)
+                self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
+                # 显示变换后的图像
+                ImageOperator.set_image(self.image_label, self.transformed_image, self.transformed_image.width(),
+                                        self.transformed_image.height())
+
+            except Exception as e:
+                print(f"应用矩阵失败: {e}")
+
+            height, width = self.transformed_image.height(), self.transformed_image.width()
+            if height > 600:
+                height = 600
+            if width > 2000:
+                width = 2000
+            self.scroll_area.setMinimumSize(width + 20, height + 20)
+            self.adjustSize()
+
+        @staticmethod
+        def rotation_matrix(angle_degrees):
+            angle_radians = np.radians(angle_degrees)
+            return np.array([
+                [np.cos(angle_radians), -np.sin(angle_radians), 0],
+                [np.sin(angle_radians), np.cos(angle_radians), 0],
+                [0, 0, 1]
+            ])
+
+        @staticmethod
+        def translation_matrix(tx, ty):
+            return np.array([
+                [1, 0, tx],
+                [0, 1, ty],
+                [0, 0, 1]
+            ])
+
+        @staticmethod
+        def scale_matrix(sx, sy):
+            return np.array([
+                [sx, 0, 0],
+                [0, sy, 0],
+                [0, 0, 1]
+            ])
+
+    class MatrixTransform(QWidget):
+        # 这个widget有旋转，缩放，平移的功能
+        def __init__(self, image_info):
+            super().__init__()
+
+            self.image_info = image_info
+            self.image = image_info[0]
+
+            self.setWindowTitle("平移，旋转，缩放")
+            self.resize(400, 100)
+
+            self.check_box = QCheckBox("是否保持变换", self)
+
+            self.text_edit_trans_height = QLineEdit(self)
+            self.text_edit_trans_width = QLineEdit(self)
+            self.button_trans = QPushButton("平移(自动裁剪，看不出效果)", self)
+            self.button_trans.clicked.connect(self.trans)
+
+            self.text_edit_scale_height = QLineEdit(self)
+            self.text_edit_scale_width = QLineEdit(self)
+            self.button_scale = QPushButton("缩放", self)
+            self.button_scale.clicked.connect(self.scale)
+
+            self.text_edit_rotate = QLineEdit(self)
+            self.button_rotate = QPushButton("旋转", self)
+            self.button_rotate.clicked.connect(self.rotate)
+
+            self.apply_trans = QPushButton("应用变换", self)
+            self.apply_trans.clicked.connect(self.apply)
+
+            self.image_label = QLabel(self)
+            self.scroll_area = QScrollArea(self)
+            self.scroll_area.setWidgetResizable(True)
+            self.scroll_area.setWidget(self.image_label)
+
+            self.layout = QVBoxLayout(self)
+            self.layout.addWidget(self.scroll_area)
+
+            self.layout.addWidget(self.check_box)
+
+            # 添加平移部分
+            w_layout = QHBoxLayout(self)
+            w_layout.addWidget(self.text_edit_trans_width)
+            w_layout.addWidget(self.text_edit_trans_height)
+            w_layout.addWidget(self.button_trans)
+            self.layout.addLayout(w_layout)
+
+            # 添加缩放部分
+            w_layout = QHBoxLayout(self)
+            w_layout.addWidget(self.text_edit_scale_width)
+            w_layout.addWidget(self.text_edit_scale_height)
+            w_layout.addWidget(self.button_scale)
+            self.layout.addLayout(w_layout)
+
+            # 添加旋转部分
+            w_layout = QHBoxLayout(self)
+            w_layout.addWidget(self.text_edit_rotate)
+            w_layout.addWidget(self.button_rotate)
+            self.layout.addLayout(w_layout)
+
+            self.layout.addWidget(self.apply_trans)
+
+            self.setLayout(self.layout)
+
+            self.transformed_image = self.image
+
+            self.text_edit_trans_width.setPlaceholderText("输入平移距离(x)")
+            self.text_edit_trans_height.setPlaceholderText("输入平移距离(y)")
+            self.text_edit_scale_width.setPlaceholderText("输入缩放倍数(x)")
+            self.text_edit_scale_height.setPlaceholderText("输入缩放倍数(y)")
+            self.text_edit_rotate.setPlaceholderText("输入旋转角度")
+
+        @staticmethod
+        def set_image_in_scroll_area(image, scroll_area, label):
+            ImageOperator.set_image(label, image, image.width(),
+                                    image.height())
+            height, width = image.height(), image.width()
+            if height > 600:
+                height = 600
+            if width > 2000:
+                width = 2000
+            scroll_area.setMinimumSize(width + 20, height + 20)
+
+        def trans(self):
+            try:
+                tx = float(self.text_edit_trans_width.text())
+                ty = float(self.text_edit_trans_height.text())
+                transform_matrix = ImageOperator.MatrixTransformer.translation_matrix(tx, ty)
+                if self.check_box.isChecked() is True:
+                    image_array = ImageOperator.qimage_to_array(self.transformed_image)
+                else:
+                    image_array = ImageOperator.qimage_to_array(self.image)
+                new_array = ImageOperator.linear_interpolation(image_array, transform_matrix)
+                self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
+            except ValueError:
+                QMessageBox.information(self, "提示", "请输入正确的平移参数")
+            ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
+                                                                   self.image_label)
+            self.adjustSize()
+
+        def scale(self):
+            try:
+                sx = float(self.text_edit_scale_width.text())
+                sy = float(self.text_edit_scale_height.text())
+                transform_matrix = ImageOperator.MatrixTransformer.scale_matrix(sx, sy)
+                if self.check_box.isChecked() is True:
+                    image_array = ImageOperator.qimage_to_array(self.transformed_image)
+                else:
+                    image_array = ImageOperator.qimage_to_array(self.image)
+                new_array = ImageOperator.linear_interpolation(image_array, transform_matrix)
+                self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
+            except ValueError:
+                QMessageBox.information(self, "提示", "请输入正确的缩放参数")
+            ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
+                                                                   self.image_label)
+            self.adjustSize()
+
+        def rotate(self):
+            try:
+                angle = float(self.text_edit_rotate.text())
+                transform_matrix = ImageOperator.MatrixTransformer.rotation_matrix(angle)
+                if self.check_box.isChecked() is True:
+                    image_array = ImageOperator.qimage_to_array(self.transformed_image)
+                else:
+                    image_array = ImageOperator.qimage_to_array(self.image)
+                new_array = ImageOperator.linear_interpolation(image_array, transform_matrix)
+                self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
+            except ValueError:
+                QMessageBox.information(self, "提示", "请输入正确的旋转参数")
+            ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
+                                                                   self.image_label)
+            self.adjustSize()
+
+        def apply(self):
+            if self.transformed_image is not None:
+                reply = QMessageBox.question(self, '应用变换', '是否应用该变换？',
+                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if reply == QMessageBox.StandardButton.Yes:
+                    ImagesList.get_instance().imagesList[self.image_info[1]][0] = self.transformed_image
+                    ImageViewer.get_instance().update_images(self.image_info[1])
+                    QMessageBox.information(self, "提示", "变换成功")
+                    self.close()
+            else:
+                QMessageBox.information(self, "提示", "请先进行变换")
+                return
 
 
 class ImagesList(QObject):
