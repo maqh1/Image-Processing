@@ -205,6 +205,16 @@ class ImageViewer(QtWidgets.QWidget):
         except Exception as e:
             print(e)
 
+    def fourier_transform(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+            self.fourier_transform = ImageOperator.FourierTransformer((image_info[0], num))
+            self.fourier_transform.show()
+        except Exception as e:
+            print(e)
 
 class ImageOperator:
     @staticmethod
@@ -1396,6 +1406,8 @@ class ImageOperator:
             self.text_edit_scale_height.setPlaceholderText("输入缩放倍数(y)")
             self.text_edit_rotate.setPlaceholderText("输入旋转角度")
 
+            self.is_changed = False
+
         @staticmethod
         def set_image_in_scroll_area(image, scroll_area, label):
             ImageOperator.set_image(label, image, image.width(),
@@ -1423,6 +1435,7 @@ class ImageOperator:
             ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
                                                                    self.image_label)
             self.adjustSize()
+            self.is_changed = True
 
         def scale(self):
             try:
@@ -1440,6 +1453,7 @@ class ImageOperator:
             ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
                                                                    self.image_label)
             self.adjustSize()
+            self.is_changed = True
 
         def rotate(self):
             try:
@@ -1456,9 +1470,10 @@ class ImageOperator:
             ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
                                                                    self.image_label)
             self.adjustSize()
+            self.is_changed = True
 
         def apply(self):
-            if self.transformed_image is not None:
+            if self.is_changed:
                 reply = QMessageBox.question(self, '应用变换', '是否应用该变换？',
                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if reply == QMessageBox.StandardButton.Yes:
@@ -1469,6 +1484,71 @@ class ImageOperator:
             else:
                 QMessageBox.information(self, "提示", "请先进行变换")
                 return
+
+    @staticmethod
+    def fourier_transform(image_array):
+        # 使用傅里叶变换
+        f_transform = np.fft.fft2(image_array)
+        # 将零频率分量移到图像中心
+        f_transform_shifted = np.fft.fftshift(f_transform)
+        # 取幅值谱
+        magnitude_spectrum = np.abs(f_transform_shifted)
+        # 返回傅里叶变换后的图像数组
+        return f_transform_shifted,magnitude_spectrum
+
+    @staticmethod
+    def inverse_fourier_transform(f_transform):
+        # 将零频率分量移到图像左上角
+        f_transform_shifted = np.fft.ifftshift(f_transform)
+        # 使用傅里叶逆变换
+        img_reconstructed = np.fft.ifft2(f_transform_shifted)
+        # 取逆变换后的实部（可能需要适当缩放）
+        img_result = np.abs(img_reconstructed)
+        # 返回傅里叶逆变换后的图像数组
+        return img_result
+
+    class FourierTransformer(QWidget):
+        def __init__(self, image_info):
+            super().__init__()
+
+            self.image_info = image_info
+            self.image = image_info[0]
+
+            self.setWindowTitle("傅里叶变换")
+            self.resize(400, 100)
+
+            self.fourier_transform_button = QPushButton("傅里叶变换", self)
+            self.fourier_transform_button.clicked.connect(self.fourier_transform)
+
+            self.inverse_fourier_transform_button = QPushButton("傅里叶反变换", self)
+            self.inverse_fourier_transform_button.clicked.connect(self.inverse_fourier_transform)
+
+            self.image_label = QLabel(self)
+
+            self.layout = QVBoxLayout(self)
+            self.layout.addWidget(self.image_label)
+            self.layout.addWidget(self.fourier_transform_button)
+            self.layout.addWidget(self.inverse_fourier_transform_button)
+
+            self.setLayout(self.layout)
+
+            self.f_transform_shifted=None
+        def fourier_transform(self):
+            image_array = ImageOperator.qimage_to_array(self.image)
+            self.f_transform_shifted,fourier_transform_array = ImageOperator.fourier_transform(image_array)
+            norm = 255 * (np.log(1 + fourier_transform_array) / np.log(1 + fourier_transform_array.max()))
+            transformed_image=ImageOperator.array_to_qimage(norm.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image,512,512)
+            self.adjustSize()
+
+        def inverse_fourier_transform(self):
+            if self.f_transform_shifted is None:
+                QMessageBox.information(self, "提示", "请先进行傅里叶变换")
+                return
+            inverse_fourier_transform_array=ImageOperator.inverse_fourier_transform(self.f_transform_shifted)
+            transformed_image=ImageOperator.array_to_qimage(inverse_fourier_transform_array.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image,512,512)
+            self.adjustSize()
 
 
 class ImagesList(QObject):

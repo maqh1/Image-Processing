@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="29ce7536-30c0-4bdd-a9ac-4ef400b562ff" name="更改" comment="修复了一个bug，该bug曾导致位平面分解崩溃">
+    <list default="true" id="29ce7536-30c0-4bdd-a9ac-4ef400b562ff" name="更改" comment="增加了矩阵变换功能">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FileManager.py" beforeDir="false" afterPath="$PROJECT_DIR$/FileManager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MainWindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainWindow.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/测试图片/preview.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/测试图片/preview.jpg" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,7 +36,7 @@
   <component name="GithubPullRequestsUISettings">
     <option name="selectedUrlAndAccountId">
       <UrlAndAccount>
-        <option name="accountId" value="3d8cafd1-d3bd-43fb-92fd-44d09336afad" />
+        <option name="accountId" value="c476eb26-9667-470e-a7ff-22eb277ed8ed" />
         <option name="url" value="https://github.com/maqh1/Image-Processing.git" />
       </UrlAndAccount>
     </option>
@@ -211,7 +210,15 @@
       <option name="project" value="LOCAL" />
       <updated>1696830263002</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="增加了矩阵变换功能">
+      <option name="closed" value="true" />
+      <created>1697526513004</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1697526513004</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -232,6 +239,7 @@
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="提交" />
     <MESSAGE value="修复了一个bug，该bug曾导致位平面分解崩溃" />
-    <option name="LAST_COMMIT_MESSAGE" value="修复了一个bug，该bug曾导致位平面分解崩溃" />
+    <MESSAGE value="增加了矩阵变换功能" />
+    <option name="LAST_COMMIT_MESSAGE" value="增加了矩阵变换功能" />
   </component>
 </project>

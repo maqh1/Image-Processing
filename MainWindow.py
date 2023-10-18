@@ -41,6 +41,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.Action_histogram_equalization= self.MenuOperation.addAction("直方图均衡化")
         self.Action_matrix_transform= self.MenuOperation.addAction("矩阵变换")
         self.Action_trans_scale_rotate= self.MenuOperation.addAction("平移、缩放、旋转")
+        self.Action_fourier_transform= self.MenuOperation.addAction("傅里叶变换")
 
         self.Action_sampling_and_quantization.triggered.connect(imageViewer.sampling_and_quantization)
         self.Action_bit_plane_decomposition.triggered.connect(imageViewer.bit_plane_decomposition)
@@ -50,6 +51,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.Action_histogram_equalization.triggered.connect(imageViewer.histogram_equalization)
         self.Action_matrix_transform.triggered.connect(imageViewer.matrix_transform)
         self.Action_trans_scale_rotate.triggered.connect(imageViewer.trans_scale_rotate)
+        self.Action_fourier_transform.triggered.connect(imageViewer.fourier_transform)
 
         self.MenuImages = self.MenuBar.addMenu("多图像操作")
         self.Action_Object_Detection= self.MenuImages.addAction("对象检测")
