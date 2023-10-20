@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import pywt
+
 from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtCore import QObject, QDateTime, Qt, QSize
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter
@@ -8,7 +10,6 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLab
 from sympy import symbols, sympify, lambdify
 
 from Dialog import ParametersInputDialog
-
 
 class ImageViewer(QtWidgets.QWidget):
     _instance = None
@@ -215,6 +216,7 @@ class ImageViewer(QtWidgets.QWidget):
             self.fourier_transform.show()
         except Exception as e:
             print(e)
+
 
 class ImageOperator:
     @staticmethod
@@ -1300,7 +1302,7 @@ class ImageOperator:
 
             except Exception as e:
                 print(f"应用矩阵失败: {e}")
-
+                return
             height, width = self.transformed_image.height(), self.transformed_image.width()
             if height > 600:
                 height = 600
@@ -1432,6 +1434,7 @@ class ImageOperator:
                 self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
             except ValueError:
                 QMessageBox.information(self, "提示", "请输入正确的平移参数")
+                return
             ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
                                                                    self.image_label)
             self.adjustSize()
@@ -1450,6 +1453,7 @@ class ImageOperator:
                 self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
             except ValueError:
                 QMessageBox.information(self, "提示", "请输入正确的缩放参数")
+                return
             ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
                                                                    self.image_label)
             self.adjustSize()
@@ -1467,6 +1471,7 @@ class ImageOperator:
                 self.transformed_image = ImageOperator.array_to_qimage(new_array.astype(np.uint8))
             except ValueError:
                 QMessageBox.information(self, "提示", "请输入正确的旋转参数")
+                return
             ImageOperator.MatrixTransform.set_image_in_scroll_area(self.transformed_image, self.scroll_area,
                                                                    self.image_label)
             self.adjustSize()
@@ -1491,10 +1496,7 @@ class ImageOperator:
         f_transform = np.fft.fft2(image_array)
         # 将零频率分量移到图像中心
         f_transform_shifted = np.fft.fftshift(f_transform)
-        # 取幅值谱
-        magnitude_spectrum = np.abs(f_transform_shifted)
-        # 返回傅里叶变换后的图像数组
-        return f_transform_shifted,magnitude_spectrum
+        return f_transform_shifted
 
     @staticmethod
     def inverse_fourier_transform(f_transform):
@@ -1502,10 +1504,20 @@ class ImageOperator:
         f_transform_shifted = np.fft.ifftshift(f_transform)
         # 使用傅里叶逆变换
         img_reconstructed = np.fft.ifft2(f_transform_shifted)
-        # 取逆变换后的实部（可能需要适当缩放）
-        img_result = np.abs(img_reconstructed)
         # 返回傅里叶逆变换后的图像数组
-        return img_result
+        return img_reconstructed
+
+    @staticmethod
+    def cosine_transform(image_array):
+        # 使用余弦变换
+        c_transform = cv2.dct(image_array.astype(np.float32))
+        return c_transform
+
+    @staticmethod
+    def inverse_cosine_transform(c_transform):
+        # 使用逆余弦变换
+        img_reconstructed = cv2.idct(c_transform)
+        return img_reconstructed
 
     class FourierTransformer(QWidget):
         def __init__(self, image_info):
@@ -1520,35 +1532,230 @@ class ImageOperator:
             self.fourier_transform_button = QPushButton("傅里叶变换", self)
             self.fourier_transform_button.clicked.connect(self.fourier_transform)
 
-            self.inverse_fourier_transform_button = QPushButton("傅里叶反变换", self)
-            self.inverse_fourier_transform_button.clicked.connect(self.inverse_fourier_transform)
+            self.cosine_transform_button = QPushButton("余弦变换", self)
+            self.cosine_transform_button.clicked.connect(self.cosine_transform)
+
+            self.textedit_low = QLineEdit(self)
+            self.button_low = QPushButton("低通滤波", self)
+            self.button_low.clicked.connect(self.low_pass_filter)
+
+            self.textedit_high = QLineEdit(self)
+            self.button_high = (QPushButton("高通滤波", self))
+            self.button_high.clicked.connect(self.high_pass_filter)
+
+            self.textedit_mid_low = QLineEdit(self)
+            self.textedit_mid_high = QLineEdit(self)
+            self.button_mid = (QPushButton("带通滤波", self))
+            self.button_mid.clicked.connect(self.mid_pass_filter)
 
             self.image_label = QLabel(self)
 
             self.layout = QVBoxLayout(self)
             self.layout.addWidget(self.image_label)
             self.layout.addWidget(self.fourier_transform_button)
-            self.layout.addWidget(self.inverse_fourier_transform_button)
+            self.layout.addWidget(self.cosine_transform_button)
+
+            HLayout = QHBoxLayout(self)
+            HLayout.addWidget(self.textedit_low)
+            HLayout.addWidget(self.button_low)
+            self.layout.addLayout(HLayout)
+
+            HLayout = QHBoxLayout(self)
+            HLayout.addWidget(self.textedit_high)
+            HLayout.addWidget(self.button_high)
+            self.layout.addLayout(HLayout)
+
+            HLayout = QHBoxLayout(self)
+            HLayout.addWidget(self.textedit_mid_low)
+            HLayout.addWidget(self.textedit_mid_high)
+            HLayout.addWidget(self.button_mid)
+            self.layout.addLayout(HLayout)
 
             self.setLayout(self.layout)
 
-            self.f_transform_shifted=None
+            self.f_transform_shifted = None
+            self.trans_type = None
+
+            self.textedit_low.setPlaceholderText("请输入整数")
+            self.textedit_high.setPlaceholderText("请输入整数")
+            self.textedit_mid_low.setPlaceholderText("请输入整数")
+            self.textedit_mid_high.setPlaceholderText("请输入整数")
+
         def fourier_transform(self):
             image_array = ImageOperator.qimage_to_array(self.image)
-            self.f_transform_shifted,fourier_transform_array = ImageOperator.fourier_transform(image_array)
-            norm = 255 * (np.log(1 + fourier_transform_array) / np.log(1 + fourier_transform_array.max()))
-            transformed_image=ImageOperator.array_to_qimage(norm.astype(np.uint8))
-            ImageOperator.set_image(self.image_label, transformed_image,512,512)
+            self.f_transform_shifted = ImageOperator.fourier_transform(image_array)
+            norm = ImageOperator.ImageProcessorWidget.normalize(np.log(np.abs(self.f_transform_shifted)))
+            norm[norm >= 255] = 255
+            transformed_image = ImageOperator.array_to_qimage(norm.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
+            self.trans_type = "fourier"
+            self.adjustSize()
+
+        def array2image(self, array):
+            if self.trans_type == "fourier":
+                return ImageOperator.inverse_fourier_transform(array)
+            if self.trans_type == "cosine":
+                return ImageOperator.inverse_cosine_transform(array)
+            if self.trans_type=='wavelet':
+                return ImageOperator.inverse_wavelet(array)
+
+        def cosine_transform(self):
+            image_array = ImageOperator.qimage_to_array(self.image)
+            self.f_transform_shifted = ImageOperator.cosine_transform(image_array)
+            norm = ImageOperator.ImageProcessorWidget.normalize(np.log(np.abs(self.f_transform_shifted)))
+            norm[norm >= 255] = 255
+            transformed_image = ImageOperator.array_to_qimage(norm.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
+            self.trans_type = "cosine"
             self.adjustSize()
 
         def inverse_fourier_transform(self):
             if self.f_transform_shifted is None:
-                QMessageBox.information(self, "提示", "请先进行傅里叶变换")
+                QMessageBox.information(self, "提示", "请先进行变换")
                 return
-            inverse_fourier_transform_array=ImageOperator.inverse_fourier_transform(self.f_transform_shifted)
-            transformed_image=ImageOperator.array_to_qimage(inverse_fourier_transform_array.astype(np.uint8))
-            ImageOperator.set_image(self.image_label, transformed_image,512,512)
+            inverse_fourier_transform_array = np.abs(ImageOperator.inverse_fourier_transform(self.f_transform_shifted))
+            transformed_image = ImageOperator.array_to_qimage(inverse_fourier_transform_array.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
             self.adjustSize()
+
+        def low_pass_filter(self):
+            if self.f_transform_shifted is None:
+                QMessageBox.information(self, "提示", "请先进行变换")
+                return
+            # 在已有的 f_transform_shifted 上执行低通滤波操作
+            try:
+                num = self.textedit_low.text()
+                cutoff_frequency = int(num)
+                if cutoff_frequency < 0:
+                    raise ValueError
+            except ValueError as e:
+                QMessageBox.information(self, "提示", "请输入正确的截止频率")
+                return
+            low_pass_f_transform = self.f_transform_shifted.copy()
+            rows, cols = low_pass_f_transform.shape
+            crow, ccol = int(rows / 2), int(cols / 2)
+            if self.trans_type == "cosine":
+                mask = np.zeros((rows, cols), np.uint8)
+                if crow - cutoff_frequency >= 0 and ccol - cutoff_frequency >= 0 and crow + cutoff_frequency < rows and ccol + cutoff_frequency < cols:
+                    mask[crow - cutoff_frequency:crow + cutoff_frequency,
+                    ccol - cutoff_frequency:ccol + cutoff_frequency] = 1
+                else:
+                    QMessageBox.information(self, "提示", "截止频率过大")
+                    return
+                low_pass_f_transform = low_pass_f_transform * mask
+            elif self.trans_type == "fourier":
+                if crow - cutoff_frequency >= 0 and ccol - cutoff_frequency >= 0 and crow + cutoff_frequency < rows and ccol + cutoff_frequency < cols:
+                    low_pass_f_transform[crow - cutoff_frequency:crow + cutoff_frequency,
+                    ccol - cutoff_frequency:ccol + cutoff_frequency] = 0
+                else:
+                    QMessageBox.information(self, "提示", "截止频率过大")
+                    return
+            inverse_f_transform = self.array2image(low_pass_f_transform)
+            inverse_f_transform_array = np.abs(inverse_f_transform)
+            transformed_image = ImageOperator.array_to_qimage(inverse_f_transform_array.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
+            self.adjustSize()
+
+        def high_pass_filter(self):
+            if self.f_transform_shifted is None:
+                QMessageBox.information(self, "提示", "请先进行变换")
+                return
+            # 在已有的 f_transform_shifted 上执行低通滤波操作
+            try:
+                num = self.textedit_high.text()
+                cutoff_frequency = int(num)
+                if cutoff_frequency < 0:
+                    raise ValueError
+            except ValueError as e:
+                QMessageBox.information(self, "提示", "请输入正确的截止频率")
+                return
+
+            high_pass_f_transform = self.f_transform_shifted.copy()
+            rows, cols = high_pass_f_transform.shape
+            crow, ccol = int(rows / 2), int(cols / 2)
+            if self.trans_type == "cosine":
+                if crow - cutoff_frequency >= 0 and ccol - cutoff_frequency >= 0 and crow + cutoff_frequency < rows and ccol + cutoff_frequency < cols:
+                    high_pass_f_transform[crow - cutoff_frequency:crow + cutoff_frequency,
+                    ccol - cutoff_frequency:ccol + cutoff_frequency] = 0
+                else:
+                    QMessageBox.information(self, "提示", "截止频率过大")
+                    return
+            elif self.trans_type == "fourier":
+                mask = np.zeros((rows, cols), np.uint8)
+                if crow - cutoff_frequency >= 0 and ccol - cutoff_frequency >= 0 and crow + cutoff_frequency < rows and ccol + cutoff_frequency < cols:
+                    mask[crow - cutoff_frequency:crow + cutoff_frequency,
+                    ccol - cutoff_frequency:ccol + cutoff_frequency] = 1
+                else:
+                    QMessageBox.information(self, "提示", "截止频率过大")
+                    return
+                high_pass_f_transform = high_pass_f_transform * mask
+            inverse_f_transform = self.array2image(high_pass_f_transform)
+            inverse_f_transform_array = np.abs(inverse_f_transform)
+
+            transformed_image = ImageOperator.array_to_qimage(inverse_f_transform_array.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
+            self.adjustSize()
+
+        def mid_pass_filter(self):
+            if self.f_transform_shifted is None:
+                QMessageBox.information(self, "提示", "请先进行变换")
+                return
+            # 在已有的 f_transform_shifted 上执行低通滤波操作
+            try:
+                num = self.textedit_mid_low.text()
+                cutoff_frequency_1 = int(num)
+                if cutoff_frequency_1 < 0:
+                    raise ValueError
+
+                num = self.textedit_mid_high.text()
+                cutoff_frequency_2 = int(num)
+                if cutoff_frequency_2 < 0:
+                    raise ValueError
+
+                if cutoff_frequency_1 >= cutoff_frequency_2:
+                    raise ValueError
+            except ValueError as e:
+                QMessageBox.information(self, "提示", "请输入正确的截止频率")
+                return
+
+            mid_pass_f_transform = self.f_transform_shifted.copy()
+            rows, cols = mid_pass_f_transform.shape
+            crow, ccol = int(rows / 2), int(cols / 2)
+
+            mask = np.zeros((rows, cols), np.uint8)
+            if crow - cutoff_frequency_2 >= 0 and ccol - cutoff_frequency_2 >= 0 and crow + cutoff_frequency_2 < rows and ccol + cutoff_frequency_2 < cols:
+                mask[crow - cutoff_frequency_2:crow + cutoff_frequency_2,
+                ccol - cutoff_frequency_2:ccol + cutoff_frequency_2] = 1
+            else:
+                QMessageBox.information(self, "提示", "截止频率过大")
+                return
+            mid_pass_f_transform = mid_pass_f_transform * mask
+
+            if crow - cutoff_frequency_1 >= 0 and ccol - cutoff_frequency_1 >= 0 and crow + cutoff_frequency_1 < rows and ccol + cutoff_frequency_1 < cols:
+                mid_pass_f_transform[crow - cutoff_frequency_1:crow + cutoff_frequency_1,
+                ccol - cutoff_frequency_1:ccol + cutoff_frequency_1] = 0
+            else:
+                QMessageBox.information(self, "提示", "截止频率过大")
+                return
+
+            inverse_f_transform = self.array2image(mid_pass_f_transform)
+            inverse_f_transform_array = np.abs(inverse_f_transform)
+
+            transformed_image = ImageOperator.array_to_qimage(inverse_f_transform_array.astype(np.uint8))
+            ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
+            self.adjustSize()
+
+    @staticmethod
+    def wavelet(image_array,wavelet_type='haar'):
+        # 执行小波变换
+        coeffs = pywt.wavedec2(image_array.astype(np.float32), wavelet_type)
+        return coeffs
+
+    @staticmethod
+    def inverse_wavelet(w_transform, wavelet_type='haar'):
+        # 执行逆小波变换
+        reconstructed_image = pywt.waverec2(w_transform, wavelet_type)
+        return reconstructed_image
 
 
 class ImagesList(QObject):
