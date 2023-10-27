@@ -7,9 +7,11 @@ from PyQt6.QtCore import QObject, QDateTime, Qt, QSize
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
     QHBoxLayout, QCheckBox
+from matplotlib import pyplot as plt
 from sympy import symbols, sympify, lambdify
 
 from Dialog import ParametersInputDialog
+
 
 class ImageViewer(QtWidgets.QWidget):
     _instance = None
@@ -217,6 +219,17 @@ class ImageViewer(QtWidgets.QWidget):
         except Exception as e:
             print(e)
 
+    def wavelet_transform(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+            self.wavelet_transform = ImageOperator.WaveletTransformer((image_info[0], num))
+            self.wavelet_transform.show()
+        except Exception as e:
+            print(e)
+
 
 class ImageOperator:
     @staticmethod
@@ -274,6 +287,7 @@ class ImageOperator:
     @staticmethod
     def array_to_qimage(image_array: np.ndarray) -> QImage:
         # 将NumPy数组转换为QImage
+        image_array=image_array.astype(np.int8)
         height, width = image_array.shape
         qimage = QImage(width, height, QImage.Format.Format_Grayscale8)
 
@@ -1555,21 +1569,21 @@ class ImageOperator:
             self.layout.addWidget(self.fourier_transform_button)
             self.layout.addWidget(self.cosine_transform_button)
 
-            HLayout = QHBoxLayout(self)
-            HLayout.addWidget(self.textedit_low)
-            HLayout.addWidget(self.button_low)
-            self.layout.addLayout(HLayout)
+            h_layout = QHBoxLayout(self)
+            h_layout.addWidget(self.textedit_low)
+            h_layout.addWidget(self.button_low)
+            self.layout.addLayout(h_layout)
 
-            HLayout = QHBoxLayout(self)
-            HLayout.addWidget(self.textedit_high)
-            HLayout.addWidget(self.button_high)
-            self.layout.addLayout(HLayout)
+            h_layout = QHBoxLayout(self)
+            h_layout.addWidget(self.textedit_high)
+            h_layout.addWidget(self.button_high)
+            self.layout.addLayout(h_layout)
 
-            HLayout = QHBoxLayout(self)
-            HLayout.addWidget(self.textedit_mid_low)
-            HLayout.addWidget(self.textedit_mid_high)
-            HLayout.addWidget(self.button_mid)
-            self.layout.addLayout(HLayout)
+            h_layout = QHBoxLayout(self)
+            h_layout.addWidget(self.textedit_mid_low)
+            h_layout.addWidget(self.textedit_mid_high)
+            h_layout.addWidget(self.button_mid)
+            self.layout.addLayout(h_layout)
 
             self.setLayout(self.layout)
 
@@ -1596,7 +1610,7 @@ class ImageOperator:
                 return ImageOperator.inverse_fourier_transform(array)
             if self.trans_type == "cosine":
                 return ImageOperator.inverse_cosine_transform(array)
-            if self.trans_type=='wavelet':
+            if self.trans_type == 'wavelet':
                 return ImageOperator.inverse_wavelet(array)
 
         def cosine_transform(self):
@@ -1745,17 +1759,53 @@ class ImageOperator:
             ImageOperator.set_image(self.image_label, transformed_image, 512, 512)
             self.adjustSize()
 
-    @staticmethod
-    def wavelet(image_array,wavelet_type='haar'):
-        # 执行小波变换
-        coeffs = pywt.wavedec2(image_array.astype(np.float32), wavelet_type)
-        return coeffs
+    class WaveletTransformer(QWidget):
+        def __init__(self, image_info):
+            super().__init__()
 
-    @staticmethod
-    def inverse_wavelet(w_transform, wavelet_type='haar'):
-        # 执行逆小波变换
-        reconstructed_image = pywt.waverec2(w_transform, wavelet_type)
-        return reconstructed_image
+            self.image = image_info[0]
+            self.image_array = ImageOperator.qimage_to_array(self.image)
+            self.coeffs = None
+
+            self.setWindowTitle("小波变换")
+            self.resize(400, 400)
+
+            self.transform_button = QPushButton("执行小波变换", self)
+            self.transform_button.clicked.connect(self.perform_wavelet_transform)
+
+
+            self.images=[]
+            self.widget=QWidget(self)
+
+            for i in range(4):
+                self.images.append(QLabel(self.widget))
+            layout=QVBoxLayout(self.widget)
+            h_layout=QHBoxLayout(self.widget)
+            for i in range(4):
+                h_layout.addWidget(self.images[i])
+                if (i+1)%2==0:
+                    layout.addLayout(h_layout)
+                    h_layout = QHBoxLayout(self.widget)
+
+            layout_1 = QVBoxLayout(self)
+            layout_1.addWidget(self.widget)
+            layout_1.addWidget(self.transform_button)
+            self.setLayout(layout_1)
+
+        def perform_wavelet_transform(self):
+            LLY, (LHY, HLY, HHY) = pywt.dwt2(self.image_array, 'haar')
+
+            # 显示小波分解的图像部分
+            self.show_wavelet_image(LLY, 0)
+            self.show_wavelet_image(LHY, 1)
+            self.show_wavelet_image(HLY, 2)
+            self.show_wavelet_image(HHY, 3)
+
+        def show_wavelet_image(self, component, index):
+            component=ImageOperator.ImageProcessorWidget.normalize(component)
+            qimage = ImageOperator.array_to_qimage(np.array(component))
+            ImageOperator.set_image(self.images[index],qimage,256,256)
+
 
 
 class ImagesList(QObject):
