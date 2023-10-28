@@ -1,13 +1,13 @@
 import cv2
 import numpy as np
 import pywt
-
 from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtCore import QObject, QDateTime, Qt, QSize
+from PyQt6.QtCore import QObject, QDateTime, Qt
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
-    QHBoxLayout, QCheckBox
-from matplotlib import pyplot as plt
+    QHBoxLayout, QCheckBox, QComboBox
+from scipy.signal import convolve2d
+from scipy.spatial import KDTree
 from sympy import symbols, sympify, lambdify
 
 from Dialog import ParametersInputDialog
@@ -230,6 +230,17 @@ class ImageViewer(QtWidgets.QWidget):
         except Exception as e:
             print(e)
 
+    def image_enhancement(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+            self.image_enhancement = ImageOperator.Filter((image_info[0], num))
+            self.image_enhancement.show()
+        except Exception as e:
+            print(e)
+
 
 class ImageOperator:
     @staticmethod
@@ -287,7 +298,7 @@ class ImageOperator:
     @staticmethod
     def array_to_qimage(image_array: np.ndarray) -> QImage:
         # 将NumPy数组转换为QImage
-        image_array=image_array.astype(np.int8)
+        image_array = image_array.astype(np.int8)
         height, width = image_array.shape
         qimage = QImage(width, height, QImage.Format.Format_Grayscale8)
 
@@ -1773,17 +1784,16 @@ class ImageOperator:
             self.transform_button = QPushButton("执行小波变换", self)
             self.transform_button.clicked.connect(self.perform_wavelet_transform)
 
-
-            self.images=[]
-            self.widget=QWidget(self)
+            self.images = []
+            self.widget = QWidget(self)
 
             for i in range(4):
                 self.images.append(QLabel(self.widget))
-            layout=QVBoxLayout(self.widget)
-            h_layout=QHBoxLayout(self.widget)
+            layout = QVBoxLayout(self.widget)
+            h_layout = QHBoxLayout(self.widget)
             for i in range(4):
                 h_layout.addWidget(self.images[i])
-                if (i+1)%2==0:
+                if (i + 1) % 2 == 0:
                     layout.addLayout(h_layout)
                     h_layout = QHBoxLayout(self.widget)
 
@@ -1802,10 +1812,221 @@ class ImageOperator:
             self.show_wavelet_image(HHY, 3)
 
         def show_wavelet_image(self, component, index):
-            component=ImageOperator.ImageProcessorWidget.normalize(component)
+            component = ImageOperator.ImageProcessorWidget.normalize(component)
             qimage = ImageOperator.array_to_qimage(np.array(component))
-            ImageOperator.set_image(self.images[index],qimage,256,256)
+            ImageOperator.set_image(self.images[index], qimage, 256, 256)
 
+    class Filter(QWidget):
+        def __init__(self, image_info):
+            super().__init__()
+
+            self.result = None
+            self.image = image_info[0]
+            self.image_array = ImageOperator.qimage_to_array(self.image)
+
+            self.setWindowTitle("图像增强")
+            self.resize(400, 400)
+
+            self.filter_type_combo = QComboBox(self)
+            self.filter_type_combo.addItem("邻域平均")
+            self.filter_type_combo.addItem("超限像素平滑")
+            self.filter_type_combo.addItem("中值滤波")
+            self.filter_type_combo.addItem("K近邻均值滤波")
+            self.filter_type_combo.addItem("最小均方差滤波")
+            self.filter_button = QPushButton("平滑", self)
+
+            self.filter_button.clicked.connect(self.filter)
+
+            self.sharpen_type_combo = QComboBox(self)
+            self.sharpen_type_combo.addItem("梯度锐化(1)")
+            self.sharpen_type_combo.addItem("梯度锐化(2)")
+            self.sharpen_type_combo.addItem("梯度锐化(3)")
+            self.sharpen_type_combo.addItem("梯度锐化(4)")
+            self.sharpen_type_combo.addItem("梯度锐化(5)")
+            self.sharpen_type_combo.addItem("拉普拉斯锐化")
+            self.sharpen_type_combo.addItem("高通滤波")
+            self.sharpen_type_combo.addItem("Sobel锐化")
+            self.sharpen_type_combo.addItem("Prewitt锐化")
+            self.sharpen_type_combo.addItem("Isotropic锐化")
+            self.sharpen_button = QPushButton("锐化", self)
+
+            self.sharpen_button.clicked.connect(self.sharpen)
+
+            self.image_label = QLabel(self)
+
+            self.layout = QVBoxLayout(self)
+            self.layout.addWidget(self.image_label)
+
+            layout = QHBoxLayout(self)
+            layout.addWidget(self.filter_type_combo)
+            layout.addWidget(self.filter_button)
+            self.layout.addLayout(layout)
+
+            layout = QHBoxLayout(self)
+            layout.addWidget(self.sharpen_type_combo)
+            layout.addWidget(self.sharpen_button)
+            self.layout.addLayout(layout)
+
+            self.setLayout(self.layout)
+
+        def filter(self):
+            type = self.filter_type_combo.currentText()
+            if type == "邻域平均":
+                self.result = self.neighborhood_average_filter(self.image_array, flag=True)
+            elif type == "超限像素平滑":
+                self.result = self.outlier_pixel_smoothing(self.image_array)
+            elif type == "中值滤波":
+                self.result = self.neighborhood_average_filter(self.image_array, flag=False)
+            elif type == "K近邻均值滤波":
+                self.result = self.k_nearest_neighbor_mean_filter(self.image_array)
+            elif type == "最小均方差滤波":
+                self.result = self.minimum_mean_square_filter(self.image_array)
+            else:
+                return
+            qimage = ImageOperator.array_to_qimage(np.array(self.result))
+            ImageOperator.set_image(self.image_label, qimage, 512, 512)
+
+        def sharpen(self):
+            type = self.sharpen_type_combo.currentText()
+            if type == "梯度锐化(1)":
+                self.result = self.gradient_sharpen(self.image_array,0)
+            elif type == "梯度锐化(2)":
+                self.result = self.gradient_sharpen(self.image_array,1)
+            elif type == "梯度锐化(3)":
+                self.result = self.gradient_sharpen(self.image_array,2)
+            elif type == "梯度锐化(4)":
+                self.result = self.gradient_sharpen(self.image_array,3)
+            elif type == "梯度锐化(5)":
+                self.result = self.gradient_sharpen(self.image_array,4)
+            elif type == "拉普拉斯锐化":
+                self.result = self.universal_sharpen(self.image_array)
+            elif type == "高通滤波":
+                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]]))
+            elif type == "Sobel锐化":
+                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-2,-1],[0,0,0],[1,2,1]]))
+            elif type == "Prewitt锐化":
+                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-1,-1],[0,0,0],[1,1,1]]))
+            elif type == "Isotropic锐化":
+                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-np.sqrt(2),-1],[0,0,0],[1,np.sqrt(2),1]]))
+            else:
+                return
+            qimage = ImageOperator.array_to_qimage(np.array(self.result))
+            ImageOperator.set_image(self.image_label, qimage, 512, 512)
+
+        @staticmethod
+        def neighborhood_average_filter(image_array, flag=True):
+            height, width = image_array.shape
+            result = image_array.copy()
+
+            for i in range(1, height - 1):
+                for j in range(1, width - 1):
+                    neighborhood = image_array[i - 1:i + 2, j - 1:j + 2]
+                    if flag:
+                        result[i, j] = np.mean(neighborhood)
+                    else:
+                        result[i, j] = np.median(neighborhood)
+            return result
+
+        @staticmethod
+        def outlier_pixel_smoothing(image_array, threshold=20,
+                                    convolution_kernel=np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16):
+            smoothed_image = np.copy(image_array)
+            for i in range(1, image_array.shape[0] - 2):
+                for j in range(1, image_array.shape[1] - 2):
+                    neighborhood = image_array[i - 1:i + 2, j - 1:j + 2]
+                    if np.abs(image_array[i, j] - np.sum(neighborhood * convolution_kernel)) > threshold:
+                        smoothed_image[i, j] = np.sum(neighborhood * convolution_kernel)
+            return smoothed_image
+
+        @staticmethod
+        def k_nearest_neighbor_mean_filter(image_array, k=5, flag=True):
+            height, width = image_array.shape
+            result = np.copy(image_array)
+            flat_image = image_array.flatten()
+            kdtree = KDTree(flat_image.reshape(-1, 1))
+            for i in range(height):
+                for j in range(width):
+                    pixel_value = image_array[i, j]
+                    _, indices = kdtree.query(pixel_value, k + 1)
+                    neighbor_values = flat_image[indices[1:]]
+                    if flag:
+                        result[i, j] = np.mean(neighbor_values)
+                    else:
+                        result[i, j] = np.median(neighbor_values)
+            return result
+
+        @staticmethod
+        def minimum_mean_square_filter(image_array):
+            templates = [
+                [[0, 1, 1, 1, 0], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [1, 1, 0, 0, 0], [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 0, 0], [0, 0, 0, 1, 1], [0, 0, 1, 1, 1], [0, 0, 0, 1, 1], [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [0, 1, 1, 1, 0]],
+                [[1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [0, 1, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 1, 1], [0, 0, 1, 1, 1], [0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 1, 1, 0, 0], [1, 1, 1, 0, 0], [1, 1, 0, 0, 0]],
+                [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 1, 1, 0], [0, 0, 1, 1, 1], [0, 0, 0, 1, 1]],
+                [[0, 0, 0, 0, 0], [0, 1, 1, 1, 0], [0, 1, 1, 1, 0], [0, 1, 1, 1, 0], [0, 0, 0, 0, 0]],
+            ]
+            templates = np.array(templates)
+            height, width = image_array.shape
+            result = image_array.copy()
+            for i in range(2, height - 3):
+                for j in range(2, width - 3):
+                    neighborhood = image_array[i - 2:i + 3, j - 2:j + 3]
+                    min_mean_square = np.inf
+                    best_template = None
+                    for template in templates:
+                        template_values = neighborhood[template == 1]
+                        mean_square = np.mean(np.square(neighborhood - np.mean(template_values)))
+                        if mean_square < min_mean_square:
+                            min_mean_square = mean_square
+                            best_template = template
+                    result[i, j] = np.mean(neighborhood[best_template == 1])
+            return result
+
+        @staticmethod
+        def gradient_sharpen(image_array, type=0,threshold=50):
+            height, width = image_array.shape
+            array = image_array.astype(np.float64)
+            result = image_array.copy().astype(np.float64)
+            for i in range(1, height - 1):
+                for j in range(1, width - 1):
+                    dx = array[i, j] - array[i - 1, j]
+                    dy = array[i, j] - array[i, j - 1]
+                    gradient = np.sqrt(dx * dx + dy * dy)
+                    if type == 0:
+                        result[i, j] = int(gradient)
+                    elif type == 1:
+                        if gradient > threshold:
+                            result[i, j] = int(gradient)
+                        else:
+                            result[i, j] = int(array[i, j])
+                    elif type == 2:
+                        if gradient > threshold:
+                            result[i, j] = 0
+                        else:
+                            result[i, j] = int(array[i, j])
+                    elif type == 3:
+                        if gradient > threshold:
+                            result[i, j] = int(gradient)
+                        else:
+                            result[i, j] = 0
+                    elif type == 4:
+                        if gradient > threshold:
+                            result[i, j] = 0
+                        else:
+                            result[i, j] = 255
+            result = np.clip(result, 0, 255)
+            result = result.astype(np.uint8)
+            return result
+
+        @staticmethod
+        def universal_sharpen(image_array,operator=np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])):
+            result = convolve2d(image_array, operator, mode='same', boundary='wrap')
+            # 如果需要将结果限制在0到255之间，可以使用以下代码
+            result = np.clip(result, 0, 255).astype(np.uint8)
+            return result
 
 
 class ImagesList(QObject):
