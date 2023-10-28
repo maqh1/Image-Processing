@@ -1833,6 +1833,10 @@ class ImageOperator:
             self.filter_type_combo.addItem("中值滤波")
             self.filter_type_combo.addItem("K近邻均值滤波")
             self.filter_type_combo.addItem("最小均方差滤波")
+            self.filter_type_combo.addItem("理想低通滤波")
+            self.filter_type_combo.addItem("Butterworth低通滤波")
+            self.filter_type_combo.addItem("指数低通滤波")
+            self.filter_type_combo.addItem("梯形低通滤波")
             self.filter_button = QPushButton("平滑", self)
 
             self.filter_button.clicked.connect(self.filter)
@@ -1848,6 +1852,10 @@ class ImageOperator:
             self.sharpen_type_combo.addItem("Sobel锐化")
             self.sharpen_type_combo.addItem("Prewitt锐化")
             self.sharpen_type_combo.addItem("Isotropic锐化")
+            self.sharpen_type_combo.addItem("理想高通滤波")
+            self.sharpen_type_combo.addItem("Butterworth高通滤波")
+            self.sharpen_type_combo.addItem("指数高通滤波")
+            self.sharpen_type_combo.addItem("梯形高通滤波")
             self.sharpen_button = QPushButton("锐化", self)
 
             self.sharpen_button.clicked.connect(self.sharpen)
@@ -1881,6 +1889,14 @@ class ImageOperator:
                 self.result = self.k_nearest_neighbor_mean_filter(self.image_array)
             elif type == "最小均方差滤波":
                 self.result = self.minimum_mean_square_filter(self.image_array)
+            elif type == "理想低通滤波":
+                self.result = self.ideal_low_pass_filter(self.image_array)
+            elif type == "Butterworth低通滤波":
+                self.result = self.butterworth_low_pass_filter(self.image_array)
+            elif type == "指数低通滤波":
+                self.result = self.exponential_low_pass_filter(self.image_array)
+            elif type == "梯形低通滤波":
+                self.result = self.trapezoidal_low_pass_filter(self.image_array)
             else:
                 return
             qimage = ImageOperator.array_to_qimage(np.array(self.result))
@@ -1908,6 +1924,14 @@ class ImageOperator:
                 self.result = self.universal_sharpen(self.image_array,np.array([[-1,-1,-1],[0,0,0],[1,1,1]]))
             elif type == "Isotropic锐化":
                 self.result = self.universal_sharpen(self.image_array,np.array([[-1,-np.sqrt(2),-1],[0,0,0],[1,np.sqrt(2),1]]))
+            elif type == "理想高通滤波":
+                self.result = self.ideal_high_pass_filter(self.image_array)
+            elif type == "Butterworth高通滤波":
+                self.result = self.butterworth_high_pass_filter(self.image_array)
+            elif type == "指数高通滤波":
+                self.result = self.exponential_high_pass_filter(self.image_array)
+            elif type == "梯形高通滤波":
+                self.result = self.trapezoidal_high_pass_filter(self.image_array)
             else:
                 return
             qimage = ImageOperator.array_to_qimage(np.array(self.result))
@@ -2027,6 +2051,134 @@ class ImageOperator:
             # 如果需要将结果限制在0到255之间，可以使用以下代码
             result = np.clip(result, 0, 255).astype(np.uint8)
             return result
+
+        @staticmethod
+        def ideal_low_pass_filter(image_array, cutoff_frequency=0.2):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.uint8)
+            mask[crow - cutoff_frequency:crow + cutoff_frequency,
+            ccol - cutoff_frequency:ccol + cutoff_frequency] = 1
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def butterworth_low_pass_filter(image_array, cutoff_frequency=0.1,order=2):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.float64)
+            for i in range(rows):
+                for j in range(cols):
+                    mask[i,j]=1/(1+np.sqrt((i-crow)**2+(j-ccol)**2)/cutoff_frequency**2)**(2*order)
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def exponential_low_pass_filter(image_array, cutoff_frequency=0.2,order=2):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.float64)
+            for i in range(rows):
+                for j in range(cols):
+                    mask[i,j]=np.exp(-((i-crow)**2+(j-ccol)**2)/cutoff_frequency**2)**(order/2)
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def trapezoidal_low_pass_filter(image_array,cutoff_frequency_1=0.2,cutoff_frequency_2=0.6):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency_1= int(cutoff_frequency_1*min(rows,cols))
+            cutoff_frequency_2= int(cutoff_frequency_2*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.float64)
+            for i in range(rows):
+                for j in range(cols):
+                    if (i-crow)**2+(j-ccol)**2<cutoff_frequency_1**2:
+                        mask[i,j]=1
+                    elif (i-crow)**2+(j-ccol)**2<cutoff_frequency_2**2:
+                        mask[i,j]=np.sqrt((cutoff_frequency_2**2-(i-crow)**2-(j-ccol)**2)/(cutoff_frequency_2**2-cutoff_frequency_1**2))
+                    else:
+                        mask[i,j]=0
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def ideal_high_pass_filter(image_array, cutoff_frequency=0.2):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.ones((rows, cols), np.uint8)
+            mask[crow - cutoff_frequency:crow + cutoff_frequency,
+            ccol - cutoff_frequency:ccol + cutoff_frequency] = 0
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def butterworth_high_pass_filter(image_array, cutoff_frequency=0.1,order=2):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.float64)
+            for i in range(rows):
+                for j in range(cols):
+                    if (i-crow)**2+(j-ccol)**2==0:
+                        mask[i,j]=0
+                    else:
+                        mask[i,j]=1/(1+np.sqrt(cutoff_frequency**2/((i-crow)**2+(j-ccol)**2)))**(2*order)
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def exponential_high_pass_filter(image_array, cutoff_frequency=0.2,order=2):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.float64)
+            for i in range(rows):
+                for j in range(cols):
+                    if (i-crow)**2+(j-ccol)**2==0:
+                        mask[i,j]=0
+                    else:
+                        mask[i,j]=np.exp(-(cutoff_frequency**2/((i-crow)**2+(j-ccol)**2)**(order/2)))
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
+
+        @staticmethod
+        def trapezoidal_high_pass_filter(image_array,cutoff_frequency_1=0.2,cutoff_frequency_2=0.6):
+            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            rows, cols = image_array.shape
+            cutoff_frequency_1= int(cutoff_frequency_1*min(rows,cols))
+            cutoff_frequency_2= int(cutoff_frequency_2*min(rows,cols))
+            crow, ccol = int(rows / 2), int(cols / 2)
+            mask = np.zeros((rows, cols), np.float64)
+            for i in range(rows):
+                for j in range(cols):
+                    if (i-crow)**2+(j-ccol)**2<cutoff_frequency_1**2:
+                        mask[i,j]=0
+                    elif (i-crow)**2+(j-ccol)**2<cutoff_frequency_2**2:
+                        mask[i,j]=np.sqrt((cutoff_frequency_2**2-(i-crow)**2-(j-ccol)**2)/(cutoff_frequency_2**2-cutoff_frequency_1**2))
+                    else:
+                        mask[i,j]=1
+            f_transform_shifted = f_transform_shifted * mask
+            inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
+            return np.abs(inverse_f_transform)
 
 
 class ImagesList(QObject):
