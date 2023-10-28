@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
 import pywt
+from PIL import Image, ImageQt
 from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtCore import QObject, QDateTime, Qt
-from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter
+from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter, qRed, qGreen, qBlue, qAlpha
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
     QHBoxLayout, QCheckBox, QComboBox
 from scipy.signal import convolve2d
@@ -238,6 +239,20 @@ class ImageViewer(QtWidgets.QWidget):
             image_info = ImagesList.get_instance().imagesList[num]
             self.image_enhancement = ImageOperator.Filter((image_info[0], num))
             self.image_enhancement.show()
+        except Exception as e:
+            print(e)
+
+    def rgb_process(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+            if image_info[0].format() != QImage.Format.Format_RGB32:
+                QMessageBox.information(self, "提示", "当前图片不是RGB格式")
+                return
+            self.rgb_process = ImageOperator.RGBProcess((image_info[0], num))
+            self.rgb_process.show()
         except Exception as e:
             print(e)
 
@@ -625,7 +640,10 @@ class ImageOperator:
             image_array = image_array.astype(np.float64)
             image_array /= 255
             image_array -= image_array.min()
-            image_array /= image_array.max()
+            if image_array.max() != 0:
+                image_array /= image_array.max()
+            else:
+                image_array = np.zeros(image_array.shape)
             image_array *= 255
             return image_array.astype(np.uint8)
 
@@ -1905,25 +1923,27 @@ class ImageOperator:
         def sharpen(self):
             type = self.sharpen_type_combo.currentText()
             if type == "梯度锐化(1)":
-                self.result = self.gradient_sharpen(self.image_array,0)
+                self.result = self.gradient_sharpen(self.image_array, 0)
             elif type == "梯度锐化(2)":
-                self.result = self.gradient_sharpen(self.image_array,1)
+                self.result = self.gradient_sharpen(self.image_array, 1)
             elif type == "梯度锐化(3)":
-                self.result = self.gradient_sharpen(self.image_array,2)
+                self.result = self.gradient_sharpen(self.image_array, 2)
             elif type == "梯度锐化(4)":
-                self.result = self.gradient_sharpen(self.image_array,3)
+                self.result = self.gradient_sharpen(self.image_array, 3)
             elif type == "梯度锐化(5)":
-                self.result = self.gradient_sharpen(self.image_array,4)
+                self.result = self.gradient_sharpen(self.image_array, 4)
             elif type == "拉普拉斯锐化":
                 self.result = self.universal_sharpen(self.image_array)
             elif type == "高通滤波":
-                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]]))
+                self.result = self.universal_sharpen(self.image_array,
+                                                     np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]))
             elif type == "Sobel锐化":
-                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-2,-1],[0,0,0],[1,2,1]]))
+                self.result = self.universal_sharpen(self.image_array, np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]))
             elif type == "Prewitt锐化":
-                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-1,-1],[0,0,0],[1,1,1]]))
+                self.result = self.universal_sharpen(self.image_array, np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]))
             elif type == "Isotropic锐化":
-                self.result = self.universal_sharpen(self.image_array,np.array([[-1,-np.sqrt(2),-1],[0,0,0],[1,np.sqrt(2),1]]))
+                self.result = self.universal_sharpen(self.image_array,
+                                                     np.array([[-1, -np.sqrt(2), -1], [0, 0, 0], [1, np.sqrt(2), 1]]))
             elif type == "理想高通滤波":
                 self.result = self.ideal_high_pass_filter(self.image_array)
             elif type == "Butterworth高通滤波":
@@ -2010,7 +2030,7 @@ class ImageOperator:
             return result
 
         @staticmethod
-        def gradient_sharpen(image_array, type=0,threshold=50):
+        def gradient_sharpen(image_array, type=0, threshold=50):
             height, width = image_array.shape
             array = image_array.astype(np.float64)
             result = image_array.copy().astype(np.float64)
@@ -2046,7 +2066,7 @@ class ImageOperator:
             return result
 
         @staticmethod
-        def universal_sharpen(image_array,operator=np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])):
+        def universal_sharpen(image_array, operator=np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])):
             result = convolve2d(image_array, operator, mode='same', boundary='wrap')
             # 如果需要将结果限制在0到255之间，可以使用以下代码
             result = np.clip(result, 0, 255).astype(np.uint8)
@@ -2054,9 +2074,9 @@ class ImageOperator:
 
         @staticmethod
         def ideal_low_pass_filter(image_array, cutoff_frequency=0.2):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            cutoff_frequency = int(cutoff_frequency * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.uint8)
             mask[crow - cutoff_frequency:crow + cutoff_frequency,
@@ -2066,58 +2086,60 @@ class ImageOperator:
             return np.abs(inverse_f_transform)
 
         @staticmethod
-        def butterworth_low_pass_filter(image_array, cutoff_frequency=0.1,order=2):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+        def butterworth_low_pass_filter(image_array, cutoff_frequency=0.1, order=2):
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            cutoff_frequency = int(cutoff_frequency * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.float64)
             for i in range(rows):
                 for j in range(cols):
-                    mask[i,j]=1/(1+np.sqrt((i-crow)**2+(j-ccol)**2)/cutoff_frequency**2)**(2*order)
+                    mask[i, j] = 1 / (1 + np.sqrt((i - crow) ** 2 + (j - ccol) ** 2) / cutoff_frequency ** 2) ** (
+                            2 * order)
             f_transform_shifted = f_transform_shifted * mask
             inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
             return np.abs(inverse_f_transform)
 
         @staticmethod
-        def exponential_low_pass_filter(image_array, cutoff_frequency=0.2,order=2):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+        def exponential_low_pass_filter(image_array, cutoff_frequency=0.2, order=2):
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            cutoff_frequency = int(cutoff_frequency * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.float64)
             for i in range(rows):
                 for j in range(cols):
-                    mask[i,j]=np.exp(-((i-crow)**2+(j-ccol)**2)/cutoff_frequency**2)**(order/2)
+                    mask[i, j] = np.exp(-((i - crow) ** 2 + (j - ccol) ** 2) / cutoff_frequency ** 2) ** (order / 2)
             f_transform_shifted = f_transform_shifted * mask
             inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
             return np.abs(inverse_f_transform)
 
         @staticmethod
-        def trapezoidal_low_pass_filter(image_array,cutoff_frequency_1=0.2,cutoff_frequency_2=0.6):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+        def trapezoidal_low_pass_filter(image_array, cutoff_frequency_1=0.2, cutoff_frequency_2=0.6):
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency_1= int(cutoff_frequency_1*min(rows,cols))
-            cutoff_frequency_2= int(cutoff_frequency_2*min(rows,cols))
+            cutoff_frequency_1 = int(cutoff_frequency_1 * min(rows, cols))
+            cutoff_frequency_2 = int(cutoff_frequency_2 * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.float64)
             for i in range(rows):
                 for j in range(cols):
-                    if (i-crow)**2+(j-ccol)**2<cutoff_frequency_1**2:
-                        mask[i,j]=1
-                    elif (i-crow)**2+(j-ccol)**2<cutoff_frequency_2**2:
-                        mask[i,j]=np.sqrt((cutoff_frequency_2**2-(i-crow)**2-(j-ccol)**2)/(cutoff_frequency_2**2-cutoff_frequency_1**2))
+                    if (i - crow) ** 2 + (j - ccol) ** 2 < cutoff_frequency_1 ** 2:
+                        mask[i, j] = 1
+                    elif (i - crow) ** 2 + (j - ccol) ** 2 < cutoff_frequency_2 ** 2:
+                        mask[i, j] = np.sqrt((cutoff_frequency_2 ** 2 - (i - crow) ** 2 - (j - ccol) ** 2) / (
+                                cutoff_frequency_2 ** 2 - cutoff_frequency_1 ** 2))
                     else:
-                        mask[i,j]=0
+                        mask[i, j] = 0
             f_transform_shifted = f_transform_shifted * mask
             inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
             return np.abs(inverse_f_transform)
 
         @staticmethod
         def ideal_high_pass_filter(image_array, cutoff_frequency=0.2):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            cutoff_frequency = int(cutoff_frequency * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.ones((rows, cols), np.uint8)
             mask[crow - cutoff_frequency:crow + cutoff_frequency,
@@ -2127,58 +2149,228 @@ class ImageOperator:
             return np.abs(inverse_f_transform)
 
         @staticmethod
-        def butterworth_high_pass_filter(image_array, cutoff_frequency=0.1,order=2):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+        def butterworth_high_pass_filter(image_array, cutoff_frequency=0.1, order=2):
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            cutoff_frequency = int(cutoff_frequency * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.float64)
             for i in range(rows):
                 for j in range(cols):
-                    if (i-crow)**2+(j-ccol)**2==0:
-                        mask[i,j]=0
+                    if (i - crow) ** 2 + (j - ccol) ** 2 == 0:
+                        mask[i, j] = 0
                     else:
-                        mask[i,j]=1/(1+np.sqrt(cutoff_frequency**2/((i-crow)**2+(j-ccol)**2)))**(2*order)
+                        mask[i, j] = 1 / (1 + np.sqrt(cutoff_frequency ** 2 / ((i - crow) ** 2 + (j - ccol) ** 2))) ** (
+                                2 * order)
             f_transform_shifted = f_transform_shifted * mask
             inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
             return np.abs(inverse_f_transform)
 
         @staticmethod
-        def exponential_high_pass_filter(image_array, cutoff_frequency=0.2,order=2):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+        def exponential_high_pass_filter(image_array, cutoff_frequency=0.2, order=2):
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency= int(cutoff_frequency*min(rows,cols))
+            cutoff_frequency = int(cutoff_frequency * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.float64)
             for i in range(rows):
                 for j in range(cols):
-                    if (i-crow)**2+(j-ccol)**2==0:
-                        mask[i,j]=0
+                    if (i - crow) ** 2 + (j - ccol) ** 2 == 0:
+                        mask[i, j] = 0
                     else:
-                        mask[i,j]=np.exp(-(cutoff_frequency**2/((i-crow)**2+(j-ccol)**2)**(order/2)))
+                        mask[i, j] = np.exp(
+                            -(cutoff_frequency ** 2 / ((i - crow) ** 2 + (j - ccol) ** 2) ** (order / 2)))
             f_transform_shifted = f_transform_shifted * mask
             inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
             return np.abs(inverse_f_transform)
 
         @staticmethod
-        def trapezoidal_high_pass_filter(image_array,cutoff_frequency_1=0.2,cutoff_frequency_2=0.6):
-            f_transform_shifted=ImageOperator.fourier_transform(image_array)
+        def trapezoidal_high_pass_filter(image_array, cutoff_frequency_1=0.2, cutoff_frequency_2=0.6):
+            f_transform_shifted = ImageOperator.fourier_transform(image_array)
             rows, cols = image_array.shape
-            cutoff_frequency_1= int(cutoff_frequency_1*min(rows,cols))
-            cutoff_frequency_2= int(cutoff_frequency_2*min(rows,cols))
+            cutoff_frequency_1 = int(cutoff_frequency_1 * min(rows, cols))
+            cutoff_frequency_2 = int(cutoff_frequency_2 * min(rows, cols))
             crow, ccol = int(rows / 2), int(cols / 2)
             mask = np.zeros((rows, cols), np.float64)
             for i in range(rows):
                 for j in range(cols):
-                    if (i-crow)**2+(j-ccol)**2<cutoff_frequency_1**2:
-                        mask[i,j]=0
-                    elif (i-crow)**2+(j-ccol)**2<cutoff_frequency_2**2:
-                        mask[i,j]=np.sqrt((cutoff_frequency_2**2-(i-crow)**2-(j-ccol)**2)/(cutoff_frequency_2**2-cutoff_frequency_1**2))
+                    if (i - crow) ** 2 + (j - ccol) ** 2 < cutoff_frequency_1 ** 2:
+                        mask[i, j] = 0
+                    elif (i - crow) ** 2 + (j - ccol) ** 2 < cutoff_frequency_2 ** 2:
+                        mask[i, j] = np.sqrt((cutoff_frequency_2 ** 2 - (i - crow) ** 2 - (j - ccol) ** 2) / (
+                                cutoff_frequency_2 ** 2 - cutoff_frequency_1 ** 2))
                     else:
-                        mask[i,j]=1
+                        mask[i, j] = 1
             f_transform_shifted = f_transform_shifted * mask
             inverse_f_transform = ImageOperator.inverse_fourier_transform(f_transform_shifted)
             return np.abs(inverse_f_transform)
+
+    @staticmethod
+    def rgb2array(qimage):
+        qimage = qimage.convertToFormat(QImage.Format.Format_RGB32)
+        width = qimage.width()
+        height = qimage.height()
+        image_array = np.zeros((height, width, 4), dtype=np.uint8)
+        for i in range(height):
+            for j in range(width):
+                pixel = qimage.pixel(j, i)
+                image_array[i, j, 0] = qRed(pixel)
+                image_array[i, j, 1] = qGreen(pixel)
+                image_array[i, j, 2] = qBlue(pixel)
+                image_array[i, j, 3] = qAlpha(pixel)
+        return image_array[..., :3]  # 剥离Alpha通道并返回RGB数据
+
+    @staticmethod
+    def draw_rgb_histogram(image_array, height, width) -> QImage:
+        image_array = ImageOperator.ImageProcessorWidget.normalize(image_array)
+        histogram = ImageOperator.GrayHistogramWidget.calculate_histogram(image_array)
+        histogram_pixmap = QPixmap(256, height)
+        histogram_pixmap.fill(Qt.GlobalColor.white)
+        painter = QPainter(histogram_pixmap)
+        painter.setPen(QColor(Qt.GlobalColor.black))
+        max_hist_value = max(histogram)
+        scale_factor = height / max_hist_value if max_hist_value > 0 else 1.0
+        for i in range(256):
+            scaled_height = int(histogram[i] * scale_factor)
+            painter.drawLine(i, height, i, height - scaled_height)
+        painter.end()
+        histogram_pixmap = histogram_pixmap.scaled(width, height, Qt.AspectRatioMode.IgnoreAspectRatio)
+        qimage = QImage(histogram_pixmap.toImage())
+        return qimage
+
+    @staticmethod
+    def array_to_qimage_rgb(image_array):
+        height, width, channel = image_array.shape
+        qimage = QImage(width, height, QImage.Format.Format_RGB32)
+        for i in range(height):
+            for j in range(width):
+                qimage.setPixel(j, i, qRgb(image_array[i, j, 0], image_array[i, j, 1], image_array[i, j, 2]))
+        return qimage
+
+    class RGBProcess(QWidget):
+        def __init__(self, image_info):
+            super().__init__()
+
+            self.setWindowTitle("RGB图像")
+            self.resize(400, 400)
+
+            self.image = image_info[0]
+
+            self.rgb2yuv_button = QPushButton("RGB转YUV", self)
+            self.label_1 = QLabel(self)
+            self.label_1.setText("Y")
+            self.label_2 = QLabel(self)
+            self.label_2.setText("U")
+            self.label_3 = QLabel(self)
+            self.label_3.setText("V")
+
+            self.image_1 = QLabel(self)
+            self.image_2 = QLabel(self)
+            self.image_3 = QLabel(self)
+
+            self.rgb2_256_button = QPushButton("RGB转256(统计出现频率最高的256色)", self)
+            self.image_label = QLabel(self)
+
+            self.rgb2yuv_button.clicked.connect(self.rgb2yuv)
+            self.rgb2_256_button.clicked.connect(self.rgb2_256_custom)
+
+            self.layout = QVBoxLayout(self)
+            self.layout.addWidget(self.image_label)
+
+            layout = QHBoxLayout(self)
+            layout.addWidget(self.image_1)
+            layout.addWidget(self.image_2)
+            layout.addWidget(self.image_3)
+            self.layout.addLayout(layout)
+
+            layout = QHBoxLayout(self)
+            layout.addWidget(self.label_1)
+            layout.addWidget(self.label_2)
+            layout.addWidget(self.label_3)
+            self.layout.addLayout(layout)
+
+            self.layout.addWidget(self.rgb2yuv_button)
+            self.layout.addWidget(self.rgb2_256_button)
+
+            self.setLayout(self.layout)
+
+            ImageOperator.set_image(self.image_label, self.image, 200 * 3, 200 * 3)
+
+        @staticmethod
+        def rgb2yuv_static(image_array):
+            yuv_image = np.zeros(image_array.shape, dtype=np.int8)
+            yuv_image[..., 0] = 0.299 * image_array[..., 0] + 0.587 * image_array[..., 1] + 0.114 * image_array[..., 2]
+            yuv_image[..., 1] = -0.169 * image_array[..., 0] - 0.332 * image_array[..., 1] + 0.500 * image_array[..., 2]
+            yuv_image[..., 2] = 0.500 * image_array[..., 0] - 0.419 * image_array[..., 1] - 0.081 * image_array[..., 2]
+            return yuv_image
+
+        def rgb2yuv(self):
+            image_array = ImageOperator.rgb2array(self.image)
+            yuv_array = self.rgb2yuv_static(image_array)
+            image = ImageOperator.draw_rgb_histogram(yuv_array[..., 0], 128, 256)
+            ImageOperator.set_image(self.label_1, image, 256, 128)
+            ImageOperator.set_image(self.image_1, ImageOperator.array_to_qimage(yuv_array[..., 0]), 256, 200)
+            image = ImageOperator.draw_rgb_histogram(yuv_array[..., 1], 128, 256)
+            ImageOperator.set_image(self.label_2, image, 256, 128)
+            ImageOperator.set_image(self.image_2, ImageOperator.array_to_qimage(yuv_array[..., 1]), 256, 200)
+            image = ImageOperator.draw_rgb_histogram(yuv_array[..., 2], 128, 256)
+            ImageOperator.set_image(self.label_3, image, 256, 128)
+            ImageOperator.set_image(self.image_3, ImageOperator.array_to_qimage(yuv_array[..., 2]), 256, 200)
+            ImageOperator.set_image(self.image_label, self.image, 200 * 3, 200 * 3)
+
+        def rgb2_256(self):
+            # image=self.image.convertToFormat(QImage.Format.Format_Indexed8)
+            pil_image = Image.fromqimage(self.image)
+            # 将PIL Image转换为256色图像
+            quantized_image = pil_image.quantize(colors=256)
+            # 转换为QImage
+            image = ImageQt.toqimage(quantized_image)
+            ImageOperator.set_image(self.image_label, image, 200 * 3, 200 * 3)
+
+        def rgb2_256_custom(self):
+            # 将图像转换为NumPy数组
+            image_array = ImageOperator.rgb2array(self.image)
+            image_array = image_array.reshape(-1, 3)
+
+            # 首先截断颜色为12位
+            truncated_colors = []
+            for color in image_array:
+                truncated_color = (color[0] >> 4, color[1] >> 4, color[2] >> 4)
+                truncated_colors.append(truncated_color)
+
+            # 统计每种颜色的出现次数
+            color_count = {}
+            for color in truncated_colors:
+                color = tuple(color)
+                if color in color_count:
+                    color_count[color] += 1
+                else:
+                    color_count[color] = 1
+
+            # 按出现次数降序排序颜色
+            sorted_colors = sorted(color_count.items(), key=lambda x: x[1], reverse=True)
+
+            # 选择前256种颜色
+            selected_colors = sorted_colors[:256]
+
+            # 生成调色板
+            palette = np.array(
+                [color[0] for color in selected_colors])
+
+            # 将图像的每个像素映射到最接近的颜色
+            image_array = np.array(truncated_colors)
+            image_array = image_array.reshape(-1, 1, 3)
+
+            # 对于每个像素，找到最接近的颜色
+            distances = np.sum(np.square(image_array - palette), axis=2)
+            indices = np.argmin(distances, axis=1)
+            image_array = palette[indices]
+            image_array = image_array.reshape(self.image.height(), self.image.width(), 3)
+
+            # 将NumPy数组转换为QImage
+            image = ImageOperator.array_to_qimage_rgb(image_array*16)
+            ImageOperator.set_image(self.image_label, image, 200 * 3, 200 * 3)
+
 
 
 class ImagesList(QObject):
@@ -2247,8 +2439,8 @@ class FileManager:
         file_dialog.setNameFilter("图像文件 (*.png *.jpg *.bmp)")
         if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
             file_path = file_dialog.selectedFiles()[0]
-            image = QImage(file_path)
-            image = image.convertToFormat(QImage.Format.Format_Grayscale8)
+            image = QImage(file_path, "RGB32")
+            image = image.convertToFormat(QImage.Format.Format_RGB32)
             return [image, file_path, False]
         else:
             return [None, None, False]
@@ -2294,5 +2486,4 @@ class FileManager:
         # 创建一个黑色的 QImage 对象
         image = QImage(200, 200, QImage.Format.Format_RGB32)
         image.fill(QColor(255, 255, 0))
-        image = image.convertToFormat(QImage.Format.Format_Grayscale8)
         return image
