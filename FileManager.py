@@ -3,7 +3,7 @@ import numpy as np
 import pywt
 from PIL import Image, ImageQt
 from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtCore import QObject, QDateTime, Qt
+from PyQt6.QtCore import QObject, QDateTime, Qt, QPointF
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter, qRed, qGreen, qBlue, qAlpha
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
     QHBoxLayout, QCheckBox, QComboBox
@@ -253,6 +253,18 @@ class ImageViewer(QtWidgets.QWidget):
                 return
             self.rgb_process = ImageOperator.RGBProcess((image_info[0], num))
             self.rgb_process.show()
+        except Exception as e:
+            print(e)
+            
+    def edge_detection(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            image_info = ImagesList.get_instance().imagesList[num]
+
+            self.edge_detection = ImageOperator.EdgeDetection((image_info[0], num))
+            self.edge_detection.show()
         except Exception as e:
             print(e)
 
@@ -1933,17 +1945,23 @@ class ImageOperator:
             elif type == "梯度锐化(5)":
                 self.result = self.gradient_sharpen(self.image_array, 4)
             elif type == "拉普拉斯锐化":
-                self.result = self.universal_sharpen(self.image_array)
+                self.result = self.universal_convolve(self.image_array)
             elif type == "高通滤波":
-                self.result = self.universal_sharpen(self.image_array,
+                self.result = self.universal_convolve(self.image_array,
                                                      np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]))
             elif type == "Sobel锐化":
-                self.result = self.universal_sharpen(self.image_array, np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]))
+                self.result_1 = self.universal_convolve(self.image_array, np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]),flag=False)
+                self.result_2 = self.universal_convolve(self.image_array, np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]),flag=False)
+                self.result = np.sqrt(self.result_1**2+self.result_2**2)
             elif type == "Prewitt锐化":
-                self.result = self.universal_sharpen(self.image_array, np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]))
+                self.result_1 = self.universal_convolve(self.image_array, np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]),flag=False)
+                self.result_2 = self.universal_convolve(self.image_array, np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]),flag=False)
+                self.result = np.sqrt(self.result_1**2+self.result_2**2)
             elif type == "Isotropic锐化":
-                self.result = self.universal_sharpen(self.image_array,
-                                                     np.array([[-1, -np.sqrt(2), -1], [0, 0, 0], [1, np.sqrt(2), 1]]))
+                self.result_1 = self.universal_convolve(self.image_array,
+                                                     np.array([[-1, -np.sqrt(2), -1], [0, 0, 0], [1, np.sqrt(2), 1]]),flag=False)
+                self.result_2 = self.universal_convolve(self.image_array,np.array([[-1, 0, 1], [-np.sqrt(2), 0, np.sqrt(2)], [-1, 0, 1]]),flag=False)
+                self.result = np.sqrt(self.result_1 ** 2 + self.result_2 ** 2)
             elif type == "理想高通滤波":
                 self.result = self.ideal_high_pass_filter(self.image_array)
             elif type == "Butterworth高通滤波":
@@ -2066,10 +2084,11 @@ class ImageOperator:
             return result
 
         @staticmethod
-        def universal_sharpen(image_array, operator=np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])):
+        def universal_convolve(image_array, operator=np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]),flag=True):
             result = convolve2d(image_array, operator, mode='same', boundary='wrap')
             # 如果需要将结果限制在0到255之间，可以使用以下代码
-            result = np.clip(result, 0, 255).astype(np.uint8)
+            if flag:
+                result = np.clip(result, 0, 255).astype(np.uint8)
             return result
 
         @staticmethod
@@ -2371,6 +2390,129 @@ class ImageOperator:
             image = ImageOperator.array_to_qimage_rgb(image_array*16)
             ImageOperator.set_image(self.image_label, image, 200 * 3, 200 * 3)
 
+    class EdgeDetection(QWidget):
+        def __init__(self, image_info):
+            super().__init__()
+
+            self.setWindowTitle("边缘检测")
+            self.resize(400, 400)
+
+            self.image = image_info[0]
+
+            self.combo_box = QComboBox(self)
+            self.combo_box.addItem("Sobel算子")
+            self.combo_box.addItem("Prewitt算子")
+            self.combo_box.addItem("Laplacian算子")
+            self.combo_box.addItem("5X5拉普拉斯-高斯卷积核")
+            
+            self.button = QPushButton("确定(阈值可以根据需要调整)", self)
+            self.button.clicked.connect(self.edge_detection_0)
+
+            self.button_1=QPushButton("霍夫变换")
+            self.button_1.clicked.connect(self.hough)
+
+            self.image_label = QLabel(self)
+
+            self.layout = QVBoxLayout(self)
+            self.layout.addWidget(self.image_label)
+
+            layout = QHBoxLayout(self)
+            layout.addWidget(self.combo_box)
+            layout.addWidget(self.button)
+            self.layout.addLayout(layout)
+
+            self.layout.addWidget(self.button_1)
+
+            self.setLayout(self.layout)
+
+            ImageOperator.set_image(self.image_label, self.image, 512, 512)
+
+        def edge_detection_cv(self):
+            image_array = ImageOperator.qimage_to_array(self.image)
+            image_array = cv2.GaussianBlur(image_array, (5, 5), 0)
+            edge_array = cv2.Canny(image_array, 100, 200)
+            image = ImageOperator.array_to_qimage(edge_array)
+            ImageOperator.set_image(self.image_label, image, 512, 512)
+
+        def edge_detection_0(self):
+            self.edge_detection(self)
+        def edge_detection(self,flag=True):
+            image_array = ImageOperator.qimage_to_array(self.image)
+            image_array = cv2.GaussianBlur(image_array, (5, 5), 0)
+            result=image_array
+            highThreshold=100
+            lowThreshold=50
+            if self.combo_box.currentIndex() == 0:
+                image_array_1 = ImageOperator.Filter.universal_convolve(image_array, np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]]),flag=False)
+                image_array_2 = ImageOperator.Filter.universal_convolve(image_array, np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]]),flag=False)
+                result = np.sqrt(np.square(image_array_1) + np.square(image_array_2))
+                highThreshold = 80
+                lowThreshold = 50
+            elif self.combo_box.currentIndex() == 1:
+                image_array_1 = ImageOperator.Filter.universal_convolve(image_array, np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]),flag=False)
+                image_array_2 = ImageOperator.Filter.universal_convolve(image_array, np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]),flag=False)
+                result = np.sqrt(np.square(image_array_1) + np.square(image_array_2))
+            elif self.combo_box.currentIndex() == 2:
+                result = ImageOperator.Filter.universal_convolve(image_array, np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]))
+                highThreshold=13
+                lowThreshold=5
+            elif self.combo_box.currentIndex() == 3:
+                result = ImageOperator.Filter.universal_convolve(image_array, np.array([[0, 0, -1, 0, 0], [0, -1, -2, -1, 0], [-1, -2, 16, -2, -1], [0, -1, -2, -1, 0], [0, 0, -1, 0, 0]]))
+            # image_array = ImageOperator.ImageProcessorWidget.normalize(image_array)
+
+            imageEdge = np.zeros_like(result)
+            width,height=imageEdge.shape
+
+            for i in range(1, width - 1):
+                for j in range(1, height - 1):
+                    if result[i][j] >= highThreshold:
+                        imageEdge[i][j] = 255
+                    elif result[i][j] > lowThreshold:
+                        around = result[i - 1: i + 2, j - 1: j + 2]
+                        if around.max() >= highThreshold:
+                            imageEdge[i, j] = 255
+
+            if not flag:
+                return imageEdge
+
+            image = ImageOperator.array_to_qimage(imageEdge)
+            ImageOperator.set_image(self.image_label, image, 512, 512)
+
+        def hough(self):
+            image_array = ImageOperator.qimage_to_array(self.image)
+            width, height = image_array.shape
+
+            # 创建一张黑色背景的Pixmap
+            pixmap = QPixmap(width, height)
+            pixmap.fill(Qt.GlobalColor.black)
+
+            painter = QPainter(pixmap)
+            painter.setPen(QColor(Qt.GlobalColor.white))  # 设置绘制直线的颜色，这里使用白色
+
+            # 使用霍夫变换检测直线
+            # edges = self.edge_detection(False).astype(np.uint8)
+            edges = cv2.Canny(image_array, 100, 200)
+            lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=150)  # 调整阈值根据需要
+
+            if lines is not None:
+                for line in lines:
+                    rho, theta = line[0]
+                    a = np.cos(theta)
+                    b = np.sin(theta)
+                    x0 = a * rho
+                    y0 = b * rho
+                    x1 = int(x0 + 1000 * (-b))
+                    y1 = int(y0 + 1000 * (a))
+                    x2 = int(x0 - 1000 * (-b))
+                    y2 = int(y0 - 1000 * (a))
+                    # 绘制检测到的直线
+                    painter.drawLine(QPointF(x1, y1), QPointF(x2, y2))
+
+            painter.end()
+
+            # 更新图像控件
+            image = pixmap.toImage()
+            ImageOperator.set_image(self.image_label, image, width, height)
 
 
 class ImagesList(QObject):
