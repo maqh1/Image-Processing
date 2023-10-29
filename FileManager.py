@@ -2435,7 +2435,8 @@ class ImageOperator:
             ImageOperator.set_image(self.image_label, image, 512, 512)
 
         def edge_detection_0(self):
-            self.edge_detection(self)
+            self.edge_detection()
+
         def edge_detection(self,flag=True):
             image_array = ImageOperator.qimage_to_array(self.image)
             image_array = cv2.GaussianBlur(image_array, (5, 5), 0)

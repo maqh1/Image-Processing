@@ -1,5 +1,9 @@
-numpy==1.26.0
+numpy~=1.26.0
 opencv_python==4.8.1.78
-PyQt6==6.5.2
+Pillow~=10.0.1
 PyQt6_sip==13.5.2
+PyWavelets==1.4.1
+scipy==1.11.3
 sympy==1.12
+PyQt6~=6.5.2
+opencv-python~=4.8.1.78

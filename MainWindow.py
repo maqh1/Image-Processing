@@ -2,6 +2,7 @@ from PyQt6 import QtGui, QtWidgets
 
 from FileManager import ImageViewer
 
+
 class MainWindow(QtWidgets.QMainWindow):
     _instance = None
 
@@ -33,16 +34,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.MenuOperation = self.MenuBar.addMenu("操作")
 
-        self.Action_sampling_and_quantization= self.MenuOperation.addAction("采样和量化")
+        self.Action_sampling_and_quantization = self.MenuOperation.addAction("采样和量化")
         self.Action_bit_plane_decomposition = self.MenuOperation.addAction("位平面分解")
         self.Action_bmp2txt = self.MenuOperation.addAction("BMP转TXT")
         self.Action_gray_histogram = self.MenuOperation.addAction("灰度直方图")
         self.Action_processor = self.MenuOperation.addAction("图像变换")
-        self.Action_histogram_equalization= self.MenuOperation.addAction("直方图均衡化")
-        self.Action_matrix_transform= self.MenuOperation.addAction("矩阵变换")
-        self.Action_trans_scale_rotate= self.MenuOperation.addAction("平移、缩放、旋转")
-        self.Action_fourier_transform= self.MenuOperation.addAction("傅里叶变换")
-        self.Action_wavelet_transform= self.MenuOperation.addAction("小波变换")
+        self.Action_histogram_equalization = self.MenuOperation.addAction("直方图均衡化")
+        self.Action_matrix_transform = self.MenuOperation.addAction("矩阵变换")
+        self.Action_trans_scale_rotate = self.MenuOperation.addAction("平移、缩放、旋转")
+        self.Action_fourier_transform = self.MenuOperation.addAction("傅里叶变换")
+        self.Action_wavelet_transform = self.MenuOperation.addAction("小波变换")
         self.Action_image_enhancement = self.MenuOperation.addAction("图像增强")
         self.Action_rgb_process = self.MenuOperation.addAction("彩色图像处理")
         self.Action_edge_detection = self.MenuOperation.addAction("边缘检测")
@@ -62,14 +63,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.Action_edge_detection.triggered.connect(imageViewer.edge_detection)
 
         self.MenuImages = self.MenuBar.addMenu("多图像操作")
-        self.Action_Object_Detection= self.MenuImages.addAction("对象检测")
+        self.Action_Object_Detection = self.MenuImages.addAction("对象检测")
         self.Action_Speed_Calculation = self.MenuImages.addAction("速度计算")
 
         self.Action_Object_Detection.triggered.connect(imageViewer.object_detection)
         self.Action_Speed_Calculation.triggered.connect(imageViewer.speed_calculation)
 
         self.setCentralWidget(imageViewer)
-
 
     @staticmethod
     def get_instance(parent=None):

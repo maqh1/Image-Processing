@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="29ce7536-30c0-4bdd-a9ac-4ef400b562ff" name="更改" comment="完成了部分图像分割作业">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FileManager.py" beforeDir="false" afterPath="$PROJECT_DIR$/FileManager.py" afterDir="false" />
-    </list>
+    <list default="true" id="29ce7536-30c0-4bdd-a9ac-4ef400b562ff" name="更改" comment="压缩了exe，使其大小符合github要求" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -275,7 +272,47 @@
       <option name="project" value="LOCAL" />
       <updated>1698580192093</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="重写了canny算法">
+      <option name="closed" value="true" />
+      <created>1698580465630</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1698580465630</updated>
+    </task>
+    <task id="LOCAL-00013" summary="更新了exe和requirements">
+      <option name="closed" value="true" />
+      <created>1698581302625</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1698581302625</updated>
+    </task>
+    <task id="LOCAL-00014" summary="压缩了exe，使其大小符合github要求">
+      <option name="closed" value="true" />
+      <created>1698582145784</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1698582145784</updated>
+    </task>
+    <task id="LOCAL-00015" summary="压缩了exe，使其大小符合github要求">
+      <option name="closed" value="true" />
+      <created>1698582200657</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1698582200657</updated>
+    </task>
+    <task id="LOCAL-00016" summary="压缩了exe，使其大小符合github要求">
+      <option name="closed" value="true" />
+      <created>1698582387590</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1698582387590</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -304,6 +341,9 @@
     <MESSAGE value="增加了一系列频域滤波函数" />
     <MESSAGE value="增加了彩色图像处理" />
     <MESSAGE value="完成了部分图像分割作业" />
-    <option name="LAST_COMMIT_MESSAGE" value="完成了部分图像分割作业" />
+    <MESSAGE value="重写了canny算法" />
+    <MESSAGE value="更新了exe和requirements" />
+    <MESSAGE value="压缩了exe，使其大小符合github要求" />
+    <option name="LAST_COMMIT_MESSAGE" value="压缩了exe，使其大小符合github要求" />
   </component>
 </project>
