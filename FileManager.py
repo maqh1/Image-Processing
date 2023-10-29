@@ -2480,7 +2480,7 @@ class ImageOperator:
 
         def hough(self):
             image_array = ImageOperator.qimage_to_array(self.image)
-            width, height = image_array.shape
+            height,width = image_array.shape
 
             # 创建一张黑色背景的Pixmap
             pixmap = QPixmap(width, height)
@@ -2490,8 +2490,8 @@ class ImageOperator:
             painter.setPen(QColor(Qt.GlobalColor.white))  # 设置绘制直线的颜色，这里使用白色
 
             # 使用霍夫变换检测直线
-            # edges = self.edge_detection(False).astype(np.uint8)
-            edges = cv2.Canny(image_array, 100, 200)
+            edges = self.edge_detection(False).astype(np.uint8)
+            # edges = cv2.Canny(image_array, 100, 200)
             lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=150)  # 调整阈值根据需要
 
             if lines is not None:
@@ -2512,7 +2512,7 @@ class ImageOperator:
 
             # 更新图像控件
             image = pixmap.toImage()
-            ImageOperator.set_image(self.image_label, image, width, height)
+            ImageOperator.set_image(self.image_label, image, 512, 512)
 
 
 class ImagesList(QObject):
