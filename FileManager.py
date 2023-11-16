@@ -1,3 +1,7 @@
+import heapq
+import pickle
+import random
+
 import cv2
 import numpy as np
 import pywt
@@ -7,11 +11,12 @@ from PyQt6.QtCore import QObject, QDateTime, Qt, QPointF
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter, qRed, qGreen, qBlue, qAlpha
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
     QHBoxLayout, QCheckBox, QComboBox
+from matplotlib import pyplot as plt
 from scipy.signal import convolve2d
 from scipy.spatial import KDTree
 from sympy import symbols, sympify, lambdify
 
-from Dialog import ParametersInputDialog
+from Dialog import ParametersInputDialog, AccuracyInputDialog
 
 
 class ImageViewer(QtWidgets.QWidget):
@@ -255,7 +260,7 @@ class ImageViewer(QtWidgets.QWidget):
             self.rgb_process.show()
         except Exception as e:
             print(e)
-            
+
     def edge_detection(self):
         num = self.check_current_tab()
         if num < 0:
@@ -268,6 +273,118 @@ class ImageViewer(QtWidgets.QWidget):
         except Exception as e:
             print(e)
 
+    def huffman_compress(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            if ImagesList.get_instance().imagesList[num][2] is True:
+                QMessageBox.information(self, "提示", "当前图片未保存")
+                return
+            image_info = ImagesList.get_instance().imagesList[num]
+            image_array = ImageOperator.qimage_to_array(image_info[0])
+            ImageOperator.ImageCompress.huffman(image_info)
+
+        except Exception as e:
+            print(e)
+
+    def huffman_decompress(self):
+        try:
+            dict =FileManager.load_information('huffman')
+            if dict is None:
+                return
+            image_array = ImageOperator.ImageCompress.huffman_decompress(dict)
+            image = ImageOperator.array_to_qimage(image_array)
+            ImagesList.get_instance().imagesList.append([image, None, True])
+            image_list = ImagesList.get_instance().imagesList
+            num = 0  # 存储未命名图片的数量
+            for i in range(len(image_list)):
+                if ImagesList.get_instance().imagesList[i][1] is None:
+                    num += 1
+            self.add_tab((image_list[-1][0], f"未命名{num}*"))
+        except Exception as e:
+            print(e)
+            QMessageBox.information(self, "提示", "解压失败")
+
+    def rlc_compress(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            if ImagesList.get_instance().imagesList[num][2] is True:
+                QMessageBox.information(self, "提示", "当前图片未保存")
+                return
+            image_info = ImagesList.get_instance().imagesList[num]
+            image_array = ImageOperator.qimage_to_array(image_info[0])
+            ImageOperator.ImageCompress.rlc_compress(image_info)
+
+        except Exception as e:
+            print(e)
+
+    def rlc_decompress(self):
+        try:
+            dict =FileManager.load_information('rlc')
+            if dict is None:
+                return
+            image_array = ImageOperator.ImageCompress.rlc_decompress(dict)
+            image = ImageOperator.array_to_qimage(image_array)
+            ImagesList.get_instance().imagesList.append([image, None, True])
+            image_list = ImagesList.get_instance().imagesList
+            num = 0  # 存储未命名图片的数量
+            for i in range(len(image_list)):
+                if ImagesList.get_instance().imagesList[i][1] is None:
+                    num += 1
+            self.add_tab((image_list[-1][0], f"未命名{num}*"))
+        except Exception as e:
+            print(e)
+            QMessageBox.information(self, "提示", "解压失败")
+
+    def huffman_rlc_compress(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            if ImagesList.get_instance().imagesList[num][2] is True:
+                QMessageBox.information(self, "提示", "当前图片未保存")
+                return
+            image_info = ImagesList.get_instance().imagesList[num]
+            image_array = ImageOperator.qimage_to_array(image_info[0])
+            ImageOperator.ImageCompress.huffman_rlc_compress(image_info)
+
+        except Exception as e:
+            print(e)
+
+    def huffman_rlc_decompress(self):
+        try:
+            dict =FileManager.load_information('huffman_rlc')
+            if dict is None:
+                return
+            image_array = ImageOperator.ImageCompress.huffman_rlc_decompress(dict)
+            image = ImageOperator.array_to_qimage(image_array)
+            ImagesList.get_instance().imagesList.append([image, None, True])
+            image_list = ImagesList.get_instance().imagesList
+            num = 0  # 存储未命名图片的数量
+            for i in range(len(image_list)):
+                if ImagesList.get_instance().imagesList[i][1] is None:
+                    num += 1
+            self.add_tab((image_list[-1][0], f"未命名{num}*"))
+        except Exception as e:
+            print(e)
+            QMessageBox.information(self, "提示", "解压失败")
+
+    def jpeg_compress(self):
+        num = self.check_current_tab()
+        if num < 0:
+            return
+        try:
+            if ImagesList.get_instance().imagesList[num][2] is True:
+                QMessageBox.information(self, "提示", "当前图片未保存")
+                return
+            accuracy = AccuracyInputDialog.get_accuracy_static()
+            image_info = ImagesList.get_instance().imagesList[num]
+            ImageOperator.ImageCompress.jpeg_compress(image_info, accuracy)
+        except Exception as e:
+            print(e)
 
 class ImageOperator:
     @staticmethod
@@ -1948,19 +2065,26 @@ class ImageOperator:
                 self.result = self.universal_convolve(self.image_array)
             elif type == "高通滤波":
                 self.result = self.universal_convolve(self.image_array,
-                                                     np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]))
+                                                      np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]))
             elif type == "Sobel锐化":
-                self.result_1 = self.universal_convolve(self.image_array, np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]),flag=False)
-                self.result_2 = self.universal_convolve(self.image_array, np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]),flag=False)
-                self.result = np.sqrt(self.result_1**2+self.result_2**2)
+                self.result_1 = self.universal_convolve(self.image_array,
+                                                        np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]), flag=False)
+                self.result_2 = self.universal_convolve(self.image_array,
+                                                        np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]), flag=False)
+                self.result = np.sqrt(self.result_1 ** 2 + self.result_2 ** 2)
             elif type == "Prewitt锐化":
-                self.result_1 = self.universal_convolve(self.image_array, np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]),flag=False)
-                self.result_2 = self.universal_convolve(self.image_array, np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]),flag=False)
-                self.result = np.sqrt(self.result_1**2+self.result_2**2)
+                self.result_1 = self.universal_convolve(self.image_array,
+                                                        np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]), flag=False)
+                self.result_2 = self.universal_convolve(self.image_array,
+                                                        np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]), flag=False)
+                self.result = np.sqrt(self.result_1 ** 2 + self.result_2 ** 2)
             elif type == "Isotropic锐化":
                 self.result_1 = self.universal_convolve(self.image_array,
-                                                     np.array([[-1, -np.sqrt(2), -1], [0, 0, 0], [1, np.sqrt(2), 1]]),flag=False)
-                self.result_2 = self.universal_convolve(self.image_array,np.array([[-1, 0, 1], [-np.sqrt(2), 0, np.sqrt(2)], [-1, 0, 1]]),flag=False)
+                                                        np.array(
+                                                            [[-1, -np.sqrt(2), -1], [0, 0, 0], [1, np.sqrt(2), 1]]),
+                                                        flag=False)
+                self.result_2 = self.universal_convolve(self.image_array, np.array(
+                    [[-1, 0, 1], [-np.sqrt(2), 0, np.sqrt(2)], [-1, 0, 1]]), flag=False)
                 self.result = np.sqrt(self.result_1 ** 2 + self.result_2 ** 2)
             elif type == "理想高通滤波":
                 self.result = self.ideal_high_pass_filter(self.image_array)
@@ -2084,7 +2208,7 @@ class ImageOperator:
             return result
 
         @staticmethod
-        def universal_convolve(image_array, operator=np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]),flag=True):
+        def universal_convolve(image_array, operator=np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]), flag=True):
             result = convolve2d(image_array, operator, mode='same', boundary='wrap')
             # 如果需要将结果限制在0到255之间，可以使用以下代码
             if flag:
@@ -2387,7 +2511,7 @@ class ImageOperator:
             image_array = image_array.reshape(self.image.height(), self.image.width(), 3)
 
             # 将NumPy数组转换为QImage
-            image = ImageOperator.array_to_qimage_rgb(image_array*16)
+            image = ImageOperator.array_to_qimage_rgb(image_array * 16)
             ImageOperator.set_image(self.image_label, image, 200 * 3, 200 * 3)
 
     class EdgeDetection(QWidget):
@@ -2404,28 +2528,88 @@ class ImageOperator:
             self.combo_box.addItem("Prewitt算子")
             self.combo_box.addItem("Laplacian算子")
             self.combo_box.addItem("5X5拉普拉斯-高斯卷积核")
-            
-            self.button = QPushButton("确定(阈值可以根据需要调整)", self)
+
+            self.button = QPushButton("确定", self)
             self.button.clicked.connect(self.edge_detection_0)
 
-            self.button_1=QPushButton("霍夫变换")
+            self.button_1 = QPushButton("霍夫变换(上面的输入框为直线变换的阈值)")
             self.button_1.clicked.connect(self.hough)
 
             self.image_label = QLabel(self)
 
+            self.text_edit_low = QLineEdit(self)
+            self.text_edit_low.setText("0.2")
+            self.text_edit_high = QLineEdit(self)
+            self.text_edit_high.setText("0.4")
+
+            self.button_2 = QPushButton("Canny", self)
+            self.button_2.clicked.connect(self.my_canny)
+
+            self.button_3 = QPushButton("边缘跟踪（使用上面的低阈值，效果一般，对于霍夫算法的图，阈值可设定为0.1）", self)
+            self.button_3.clicked.connect(self.edge_track)
+
+
+            self.text_edit = QLineEdit(self)
+            self.text_edit.setText("0.3")
+
             self.layout = QVBoxLayout(self)
             self.layout.addWidget(self.image_label)
+
 
             layout = QHBoxLayout(self)
             layout.addWidget(self.combo_box)
             layout.addWidget(self.button)
             self.layout.addLayout(layout)
 
+            layout = QHBoxLayout(self)
+            layout.addWidget(self.text_edit_low)
+            layout.addWidget(self.text_edit_high)
+            self.layout.addLayout(layout)
+
+            self.layout.addWidget(self.button_2)
+            self.layout.addWidget(self.button_3)
+
+            self.layout.addWidget(self.text_edit)
             self.layout.addWidget(self.button_1)
 
             self.setLayout(self.layout)
-
+            self.low = 0.2
+            self.high = 0.4
+            self.threshold=0.3
             ImageOperator.set_image(self.image_label, self.image, 512, 512)
+
+        def load_threshold(self, flag=True):
+            try:
+                if flag:
+                    low = float(self.text_edit_low.text())
+                    high = float(self.text_edit_high.text())
+                    if low > high:
+                        raise Exception("低阈值不能大于高阈值")
+                    if low > 0.999 or low < 0.001 or high > 0.999 or high < 0.001:
+                        raise Exception("请输入正确阈值(0.001-0.999)")
+                else:
+                    low = float(self.text_edit_low.text())
+                    if low > 0.999 or low < 0.001:
+                        raise Exception("请输入正确阈值(0.001-0.999)")
+                    self.low = low
+                    return True
+            except Exception as e:
+                QMessageBox.warning(self, "错误", str(e))
+                return False
+            self.low = low
+            self.high = high
+            return True
+
+        def load_threshold_1(self):
+            try:
+                threshold = float(self.text_edit.text())
+                if threshold > 0.999 or threshold < 0.001:
+                    raise Exception("请输入正确阈值(0.001-0.999)")
+            except Exception as e:
+                QMessageBox.warning(self, "错误", str(e))
+                return False
+            self.threshold = threshold
+            return True
 
         def edge_detection_cv(self):
             image_array = ImageOperator.qimage_to_array(self.image)
@@ -2437,51 +2621,147 @@ class ImageOperator:
         def edge_detection_0(self):
             self.edge_detection()
 
-        def edge_detection(self,flag=True):
+        def edge_detection(self, flag=True):
             image_array = ImageOperator.qimage_to_array(self.image)
             image_array = cv2.GaussianBlur(image_array, (5, 5), 0)
-            result=image_array
-            highThreshold=100
-            lowThreshold=50
+            result = image_array
             if self.combo_box.currentIndex() == 0:
-                image_array_1 = ImageOperator.Filter.universal_convolve(image_array, np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]]),flag=False)
-                image_array_2 = ImageOperator.Filter.universal_convolve(image_array, np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]]),flag=False)
+                image_array_1 = ImageOperator.Filter.universal_convolve(image_array,
+                                                                        np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]]),
+                                                                        flag=False)
+                image_array_2 = ImageOperator.Filter.universal_convolve(image_array,
+                                                                        np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]]),
+                                                                        flag=False)
                 result = np.sqrt(np.square(image_array_1) + np.square(image_array_2))
-                highThreshold = 80
-                lowThreshold = 50
             elif self.combo_box.currentIndex() == 1:
-                image_array_1 = ImageOperator.Filter.universal_convolve(image_array, np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]),flag=False)
-                image_array_2 = ImageOperator.Filter.universal_convolve(image_array, np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]),flag=False)
+                image_array_1 = ImageOperator.Filter.universal_convolve(image_array,
+                                                                        np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]),
+                                                                        flag=False)
+                image_array_2 = ImageOperator.Filter.universal_convolve(image_array,
+                                                                        np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]),
+                                                                        flag=False)
                 result = np.sqrt(np.square(image_array_1) + np.square(image_array_2))
             elif self.combo_box.currentIndex() == 2:
-                result = ImageOperator.Filter.universal_convolve(image_array, np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]))
-                highThreshold=13
-                lowThreshold=5
+                result = ImageOperator.Filter.universal_convolve(image_array,
+                                                                 np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]))
             elif self.combo_box.currentIndex() == 3:
-                result = ImageOperator.Filter.universal_convolve(image_array, np.array([[0, 0, -1, 0, 0], [0, -1, -2, -1, 0], [-1, -2, 16, -2, -1], [0, -1, -2, -1, 0], [0, 0, -1, 0, 0]]))
+                result = ImageOperator.Filter.universal_convolve(image_array, np.array(
+                    [[0, 0, -1, 0, 0], [0, -1, -2, -1, 0], [-1, -2, 16, -2, -1], [0, -1, -2, -1, 0], [0, 0, -1, 0, 0]]))
             # image_array = ImageOperator.ImageProcessorWidget.normalize(image_array)
 
-            imageEdge = np.zeros_like(result)
-            width,height=imageEdge.shape
-
-            for i in range(1, width - 1):
-                for j in range(1, height - 1):
-                    if result[i][j] >= highThreshold:
-                        imageEdge[i][j] = 255
-                    elif result[i][j] > lowThreshold:
-                        around = result[i - 1: i + 2, j - 1: j + 2]
-                        if around.max() >= highThreshold:
-                            imageEdge[i, j] = 255
-
             if not flag:
-                return imageEdge
+                return result
 
-            image = ImageOperator.array_to_qimage(imageEdge)
+            image = ImageOperator.array_to_qimage(result)
             ImageOperator.set_image(self.image_label, image, 512, 512)
+
+        @staticmethod
+        def gradients(image_array):
+            W, H = image_array.shape
+            image_array = image_array.astype(np.float64)
+            dx = np.zeros([W - 1, H - 1])
+            dy = np.zeros([W - 1, H - 1])
+            M = np.zeros([W - 1, H - 1])
+            theta = np.zeros([W - 1, H - 1])
+
+            for i in range(W - 1):
+                for j in range(H - 1):
+                    dx[i, j] = image_array[i + 1, j] - image_array[i, j]
+                    dy[i, j] = image_array[i, j + 1] - image_array[i, j]
+                    # 图像梯度幅值作为图像强度值
+                    M[i, j] = np.sqrt(np.square(dx[i, j]) + np.square(dy[i, j]))
+                    # 计算  θ - artan(dx/dy)
+                    theta[i, j] = np.arctan(dx[i, j] / (dy[i, j] + 0.000000001)) * 180 / np.pi
+
+            return dx, dy, M, theta
+
+        @staticmethod
+        def NMS(M, dx, dy):
+            d = np.copy(M)
+            W, H = M.shape
+            NMS = np.copy(d)
+            NMS[0, :] = NMS[W - 1, :] = NMS[:, 0] = NMS[:, H - 1] = 0
+            for i in range(1, W - 1):
+                for j in range(1, H - 1):
+                    # 如果当前梯度为0，该点就不是边缘点
+                    if M[i, j] == 0:
+                        NMS[i, j] = 0
+                    else:
+                        gradX = dx[i, j]  # 当前点 x 方向导数
+                        gradY = dy[i, j]  # 当前点 y 方向导数
+                        gradTemp = d[i, j]  # 当前梯度点
+                        # 如果 y 方向梯度值比较大，说明导数方向趋向于 y 分量
+                        if np.abs(gradY) > np.abs(gradX):
+                            weight = np.abs(gradX) / np.abs(gradY)  # 权重
+                            grad2 = d[i, j - 1]
+                            grad4 = d[i, j + 1]
+                            if gradX * gradY > 0:
+                                grad1 = d[i - 1, j - 1]
+                                grad3 = d[i + 1, j + 1]
+                            else:
+                                grad1 = d[i + 1, j - 1]
+                                grad3 = d[i - 1, j + 1]
+                        # 如果 x 方向梯度值比较大
+                        else:
+                            weight = np.abs(gradY) / np.abs(gradX)
+                            grad2 = d[i - 1, j]
+                            grad4 = d[i + 1, j]
+                            if gradX * gradY > 0:
+                                grad1 = d[i - 1, j - 1]
+                                grad3 = d[i + 1, j + 1]
+                            else:
+                                grad1 = d[i - 1, j + 1]
+                                grad3 = d[i + 1, j - 1]
+                        # 利用 grad1-grad4 对梯度进行插值
+                        gradTemp1 = weight * grad1 + (1 - weight) * grad2
+                        gradTemp2 = weight * grad3 + (1 - weight) * grad4
+                        # 当前像素的梯度是局部的最大值，可能是边缘点
+                        if gradTemp >= gradTemp1 and gradTemp >= gradTemp2:
+                            NMS[i, j] = gradTemp
+                        else:
+                            # 不可能是边缘点
+                            NMS[i, j] = 0
+            return NMS
+
+        @staticmethod
+        def double_threshold(NMS, low, high):
+            W, H = NMS.shape
+            DT = np.zeros([W, H])
+            # 定义高低阈值
+            TL = low * np.max(NMS)
+            TH = high * np.max(NMS)
+            for i in range(1, W - 1):
+                for j in range(1, H - 1):
+                    # 双阈值选取
+                    if NMS[i, j] < TL:
+                        DT[i, j] = 0
+                    elif NMS[i, j] > TH:
+                        DT[i, j] = 1
+                    # 连接
+                    elif (NMS[i - 1, j - 1:j + 1] < TH).any() or (NMS[i + 1, j - 1:j + 1] < TH).any() or (
+                            NMS[i, [j - 1, j + 1]] < TH).any():
+                        DT[i, j] = 1
+            return DT
+
+        @staticmethod
+        def canny(image_array, low, high):
+            image_array = cv2.GaussianBlur(image_array, (5, 5), 0)
+            dx, dy, M, theta = ImageOperator.EdgeDetection.gradients(image_array)
+            NMS = ImageOperator.EdgeDetection.NMS(M, dx, dy)
+            DT = ImageOperator.EdgeDetection.double_threshold(NMS, low, high)
+            return DT * 255
+
+        def my_canny(self):
+            if not self.load_threshold():
+                return
+            image_array = ImageOperator.qimage_to_array(self.image)
+            DT = self.canny(image_array, self.low, self.high)
+            image = ImageOperator.array_to_qimage(DT)
+            ImageOperator.set_image(self.image_label, image, image.width(), image.height())
 
         def hough(self):
             image_array = ImageOperator.qimage_to_array(self.image)
-            height,width = image_array.shape
+            height, width = image_array.shape
 
             # 创建一张黑色背景的Pixmap
             pixmap = QPixmap(width, height)
@@ -2491,29 +2771,343 @@ class ImageOperator:
             painter.setPen(QColor(Qt.GlobalColor.white))  # 设置绘制直线的颜色，这里使用白色
 
             # 使用霍夫变换检测直线
-            edges = self.edge_detection(False).astype(np.uint8)
+            self.load_threshold()
+            edges = self.canny(image_array, self.low, self.high).astype(np.uint8)
             # edges = cv2.Canny(image_array, 100, 200)
-            lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=150)  # 调整阈值根据需要
+            # lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=100)  # 调整阈值根据需要
+
+            if not self.load_threshold_1():
+                return
+            lines = self.hough_custom(edges,self.threshold)
 
             if lines is not None:
                 for line in lines:
-                    rho, theta = line[0]
+                    rho, theta = line
                     a = np.cos(theta)
                     b = np.sin(theta)
                     x0 = a * rho
                     y0 = b * rho
                     x1 = int(x0 + 1000 * (-b))
-                    y1 = int(y0 + 1000 * (a))
+                    y1 = int(y0 + 1000 * a)
                     x2 = int(x0 - 1000 * (-b))
-                    y2 = int(y0 - 1000 * (a))
+                    y2 = int(y0 - 1000 * a)
                     # 绘制检测到的直线
                     painter.drawLine(QPointF(x1, y1), QPointF(x2, y2))
+
+            # circles = self.hough_circle(edges,0.99)
+            # for circle in circles:
+            #     x = int(circle[0])
+            #     y = int(circle[1])
+            #     r = int(circle[2])
+            #     painter.drawEllipse(QPointF(x, y), r, r)
+
+            circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 100, param1=100, param2=30)
+            if circles is not None:
+                for circle in circles[0]:
+                    x = int(circle[0])
+                    y = int(circle[1])
+                    r = int(circle[2])
+                    painter.drawEllipse(QPointF(x, y), r, r)
 
             painter.end()
 
             # 更新图像控件
             image = pixmap.toImage()
+            ImageOperator.set_image(self.image_label, image, image.width(), image.height())
+
+        @staticmethod
+        def hough_custom(edges,threshold=0.35):
+            # 生成直线参数空间
+            thetas = np.deg2rad(np.arange(0, 180, step=1))
+            max_distance = int(np.sqrt(edges.shape[0] ** 2 + edges.shape[1] ** 2))+1
+            distances = range(-max_distance, max_distance+1)
+            votes = np.zeros((len(distances), len(thetas)))
+            # 遍历所有边缘点
+            for i in range(edges.shape[0]):
+                for j in range(edges.shape[1]):
+                    if edges[i, j] == 255:
+                        # 遍历所有直线参数
+                        for l in range(len(thetas)):
+                            # 计算距离
+                            distance=int(np.round(j * np.cos(thetas[l]) + i * np.sin(thetas[l])))
+                            if -max_distance <= distance <= max_distance:
+                                # 进行投票
+                                votes[distance + max_distance, l] += 1
+            max_value=np.max(votes)
+            # 找到所有大于阈值的直线
+            lines = []
+            for i in range(votes.shape[0]):
+                for j in range(votes.shape[1]):
+                    if votes[i, j] >= max_value*threshold:
+                        lines.append([distances[i], thetas[j]])
+            return lines
+
+        @staticmethod
+        def hough_circle(edges, threshold=0.8):
+            r_max=int(np.sqrt(edges.shape[0] ** 2 + edges.shape[1] ** 2))+1
+            if r_max<10:
+                return None
+            r_min=10
+            x_max=edges.shape[0]
+            y_max=edges.shape[1]
+            votes=np.zeros((x_max,y_max,r_max-r_min+1))
+            for i in range(x_max):
+                for j in range(y_max):
+                    if edges[i,j]==255:
+                        for x in range(x_max):
+                            for y in range(y_max):
+                                r=int(np.round(np.sqrt((x-i)**2+(y-j)**2)))
+                                if r_min<=r<=r_max:
+                                    votes[x,y,r-r_min]+=1
+
+            max_value=np.max(votes)
+            circles=[]
+            for i in range(votes.shape[0]):
+                for j in range(votes.shape[1]):
+                    for k in range(votes.shape[2]):
+                        if votes[i,j,k]>=max_value*threshold:
+                            circles.append([i,j,k+r_min])
+            return circles
+
+        def edge_track(self):
+            if not self.load_threshold(False):
+                return
+            image_array = ImageOperator.qimage_to_array(self.image)
+            edge_image = ImageOperator.EdgeDetection.edge_tracking(image_array, self.low)
+            image = ImageOperator.array_to_qimage(edge_image)
             ImageOperator.set_image(self.image_label, image, 512, 512)
+
+        @staticmethod
+        def edge_tracking(image_array, threshold=0.2):
+            image_array = cv2.GaussianBlur(image_array, (5, 5), 0)
+            dx, dy, M, _ = ImageOperator.EdgeDetection.gradients(image_array)
+            W, H = M.shape
+            # M=ImageOperator.EdgeDetection.NMS(M,dx,dy)
+            visited = np.zeros((W, H), dtype=bool)
+            edge_image = np.zeros((W, H), dtype=np.uint8)
+
+            threshold = threshold * np.max(M)
+
+            # 找到最大梯度点
+            cur_index = np.unravel_index(np.argmax(M), M.shape)
+
+            direct = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+            cur_direct = 2
+
+            def valid_coord(index):
+                return 0 <= index[0] < W - 1 and 0 <= index[1] < H - 1
+
+            while True:
+                cur_direct = (cur_direct - 2) % 8
+                visited[cur_index] = True
+                edge_image[cur_index] = 255  # 标记为强边缘
+                num = 0
+                max_d = 0
+                max_index = None
+                max_direct = None
+                while True:
+                    cur_direct = (cur_direct + 1) % 8
+                    new_index = (cur_index[0] + direct[cur_direct][0], cur_index[1] + direct[cur_direct][1])
+                    if num > 4:
+                        if max_index is not None:
+                            cur_index = max_index
+                            cur_direct = max_direct
+                            break
+                        else:
+                            return edge_image
+                    if valid_coord(new_index) and M[new_index] > max_d and not visited[new_index] and M[
+                        new_index] > threshold:
+                        max_d = M[new_index]
+                        max_index = new_index
+                        max_direct = cur_direct
+                    num += 1
+
+    class ImageCompress:
+        @staticmethod
+        def huffman(image_info):
+            image_array=ImageOperator.qimage_to_array(image_info[0])
+            hist,_=np.histogram(image_array,bins=256,range=(0,255))
+            hist=hist/np.sum(hist)
+            huffman_codes=ImageOperator.ImageCompress.build_huffman_tree(hist)
+            compressed_data = ''
+            for i in range(image_array.shape[0]):
+                for j in range(image_array.shape[1]):
+                    compressed_data+=huffman_codes[image_array[i,j]]
+            binary_data=ImageOperator.ImageCompress.binary_string_to_bytes(compressed_data)
+            info={'height':image_array.shape[0],'width':image_array.shape[1],'huffman_codes':huffman_codes,'binary_data':binary_data,'length':len(compressed_data)}
+            FileManager.save_information(image_info,info,'huffman')
+
+        @staticmethod
+        def build_huffman_tree(histogram):
+            heap = [[weight, [pixel, ""]] for pixel, weight in enumerate(histogram) if weight > 0]
+            heapq.heapify(heap)
+
+            while len(heap) > 1:
+                lo = heapq.heappop(heap)
+                hi = heapq.heappop(heap)
+                for pair in lo[1:]:
+                    pair[1] = '0' + pair[1]
+                for pair in hi[1:]:
+                    pair[1] = '1' + pair[1]
+                heapq.heappush(heap, [lo[0] + hi[0]] + lo[1:] + hi[1:])
+
+            huffman_tree = heap[0]
+            huffman_codes = dict(huffman_tree[1:])
+            return huffman_codes
+
+        @staticmethod
+        def huffman_decompress(dict):
+            width=dict['width']
+            height=dict['height']
+            huffman_codes=dict['huffman_codes']
+            binary_data=dict['binary_data']
+            length=dict['length']
+            compressed_data = ImageOperator.ImageCompress.bytes_to_binary_string(binary_data,length)
+            huffman_codes_reverse = {v: k for k, v in huffman_codes.items()}
+            data = ''
+            pixel_list = []
+            for bit in compressed_data:
+                data += bit
+                if data in huffman_codes_reverse:
+                    pixel_list.append(huffman_codes_reverse[data])
+                    data = ''
+            image_array=np.array(pixel_list).reshape(height,width)
+            return image_array
+
+        @staticmethod
+        def binary_string_to_bytes(binary_string):
+            # 确保二进制字符串长度是 8 的倍数
+            binary_string = binary_string.ljust((len(binary_string) + 7) // 8 * 8, '0')
+            # 将二进制字符串转换为整数
+            num = int(binary_string, 2)
+            # 计算需要多少字节来存储这个整数
+            num_bytes = (num.bit_length() + 7) // 8
+            # 使用 to_bytes 方法将整数转换为 bytes 对象
+            byte_data = num.to_bytes(num_bytes, byteorder='big')
+            return byte_data
+
+        @staticmethod
+        def bytes_to_binary_string(byte_data, length):
+            # 将字节数据转换为二进制字符串
+            binary_string = ''.join(format(byte, '08b') for byte in byte_data)
+            # 截取所需长度的二进制字符串
+            binary_string = binary_string[:length]
+            return binary_string
+
+        @staticmethod
+        def rlc_compress(image_info):
+            pair_list=[]
+            image_array=ImageOperator.qimage_to_array(image_info[0])
+            cur=image_array[0,0]
+            num=0
+            for i in range(image_array.shape[0]):
+                for j in range(image_array.shape[1]):
+                    if image_array[i,j]==cur:
+                        num+=1
+                        if num==255:
+                            pair_list.append([cur,np.uint8(num)])
+                            num=0
+                    else:
+                        pair_list.append([cur,np.uint8(num)])
+                        cur=image_array[i,j]
+                        num=1
+            pair_list.append([cur, num])
+            pair_list = np.array(pair_list, dtype=np.uint8)
+            info={'height':image_array.shape[0],'width':image_array.shape[1],'pair_list':pair_list}
+            FileManager.save_information(image_info,info,'rlc')
+
+        @staticmethod
+        def rlc_decompress(dict):
+            width=dict['width']
+            height=dict['height']
+            pair_list=dict['pair_list']
+            image_array=np.zeros((height,width),dtype=np.uint8)
+            index=0
+            for pair in pair_list:
+                for i in range(pair[1]):
+                    image_array[index//width,index%width]=pair[0]
+                    index+=1
+            return image_array
+
+        @staticmethod
+        def huffman_rlc_compress(image_info):
+            image_array = ImageOperator.qimage_to_array(image_info[0])
+            hist, _ = np.histogram(image_array, bins=256, range=(0, 255))
+            hist = hist / np.sum(hist)
+            huffman_codes = ImageOperator.ImageCompress.build_huffman_tree(hist)
+            compressed_data = ''
+            for i in range(image_array.shape[0]):
+                for j in range(image_array.shape[1]):
+                    compressed_data += huffman_codes[image_array[i, j]]
+            pair_list = []
+            cur = compressed_data[0]
+            num = 0
+            for i in range(len(compressed_data)):
+                if compressed_data[i] == cur:
+                    num += 1
+                    if num == 255:
+                        pair_list.append([1 if cur == '1' else 0, np.uint8(num)])
+                        num = 0
+                else:
+                    pair_list.append([1 if cur == '1' else 0, np.uint8(num)])
+                    cur = compressed_data[i]
+                    num = 1
+            pair_list.append([1 if cur == '1' else 0, num])
+            bool_list = []
+            num_list = []
+            for pair in pair_list:
+                bool_list.append(pair[0])
+                num_list.append(pair[1])
+            # 将bool_list转换为bytes
+            # 进行补全
+            if len(bool_list) % 8 != 0:
+                bool_list.extend([0] * (8 - len(bool_list) % 8))
+            bool_list = np.array(bool_list, dtype=np.uint8)
+            bool_list = bool_list.reshape(-1, 8)
+            bool_list = np.packbits(bool_list, axis=1)
+            # 将num_list转换为bytes
+            num_list = np.array(num_list, dtype=np.uint8)
+            info = {'height': image_array.shape[0], 'width': image_array.shape[1], 'huffman_codes': huffman_codes,
+                    'bool_list': bool_list, 'num_list': num_list}
+            FileManager.save_information(image_info, info, 'huffman_rlc')
+
+        @staticmethod
+        def huffman_rlc_decompress(dict):
+            height = dict['height']
+            width = dict['width']
+            huffman_codes = dict['huffman_codes']
+            bool_list = dict['bool_list']
+            num_list = dict['num_list']
+
+            # Reverse the conversion from bytes to original formats
+            bool_list = np.unpackbits(bool_list).flatten()
+            num_list = num_list.tolist()
+
+            # Perform Run-Length Decoding (RLD) to recover compressed data
+            compressed_data = ''
+            for i in range(len(num_list)):
+                for j in range(num_list[i]):
+                    compressed_data += '1' if bool_list[i] == 1 else '0'
+            huffman_codes_reverse = {v: k for k, v in huffman_codes.items()}
+            data = ''
+            pixel_list = []
+            for bit in compressed_data:
+                data += bit
+                if data in huffman_codes_reverse:
+                    pixel_list.append(huffman_codes_reverse[data])
+                    data = ''
+            image_array = np.array(pixel_list).reshape(height, width)
+            return image_array
+
+        @staticmethod
+        def jpeg_compress(image_info,quality=95):
+            # 使用opencv库
+            image_array = ImageOperator.qimage_to_array(image_info[0])
+            params = [cv2.IMWRITE_JPEG_QUALITY, quality]
+            compressed_img = cv2.imencode('.jpg', image_array, params)[1]
+            filepath=FileManager.save_information(image_info,compressed_img,'jpeg',flag=False)
+            with open(filepath,'wb') as f:
+                f.write(compressed_img)
 
 
 class ImagesList(QObject):
@@ -2606,6 +3200,7 @@ class FileManager:
         file_dialog = QFileDialog(parent)
         file_dialog.setWindowTitle("保存图像")
         file_dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         file_dialog.setNameFilter("图像文件 (*.png *.jpg *.bmp)")
 
         # 自动生成一个默认的文件名，使用当前日期和时间
@@ -2630,3 +3225,42 @@ class FileManager:
         image = QImage(200, 200, QImage.Format.Format_RGB32)
         image.fill(QColor(255, 255, 0))
         return image
+
+    @staticmethod
+    def save_information(image_info,info,type, parent=None,flag=True):
+        file_dialog = QFileDialog(parent)
+        file_dialog.setWindowTitle("保存图像")
+        file_dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        file_dialog.setNameFilter("信息文件 (*."+type+")")
+
+        # 删除后缀
+        file_name=image_info[1].split('/')[-1]
+        file_name=file_name.split('.')[0]
+
+        file_dialog.selectFile(file_name + '.'+type)
+
+        if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
+            file_path = file_dialog.selectedFiles()[0]
+            if flag:
+                with open(file_path,'wb') as f:
+                    pickle.dump(info,f)
+            else:
+                return file_path
+
+    @staticmethod
+    def load_information(type,parent=None):
+        file_dialog = QFileDialog(parent)
+        file_dialog.setWindowTitle("打开图像")
+        file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        file_dialog.setNameFilter("信息文件 (*."+type+")")
+        if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
+            file_path = file_dialog.selectedFiles()[0]
+            with open(file_path,'rb') as f:
+                try:
+                    info=pickle.load(f)
+                    return info
+                except:
+                    raise Exception("文件格式错误")
+        else:
+            return None

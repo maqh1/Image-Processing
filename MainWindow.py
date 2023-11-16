@@ -69,6 +69,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.Action_Object_Detection.triggered.connect(imageViewer.object_detection)
         self.Action_Speed_Calculation.triggered.connect(imageViewer.speed_calculation)
 
+        self.MenuImages = self.MenuBar.addMenu("压缩和解压缩")
+        self.Action_Huffman_Compress = self.MenuImages.addAction("哈夫曼压缩")
+        self.Action_Huffman_Decompress = self.MenuImages.addAction("哈夫曼解压缩")
+        self.Action_RLC_Compress = self.MenuImages.addAction("RLC压缩")
+        self.Action_RLC_Decompress= self.MenuImages.addAction("RLC解压缩")
+        self.Action_Huffman_RLC_Compress = self.MenuImages.addAction("哈夫曼+RLC压缩")
+        self.Action_Huffman_RLC_Decompress = self.MenuImages.addAction("哈夫曼+RLC解压缩")
+        self.Action_JPEG_Compress = self.MenuImages.addAction("JPEG压缩")
+
+        self.Action_Huffman_Compress.triggered.connect(imageViewer.huffman_compress)
+        self.Action_Huffman_Decompress.triggered.connect(imageViewer.huffman_decompress)
+        self.Action_RLC_Compress.triggered.connect(imageViewer.rlc_compress)
+        self.Action_RLC_Decompress.triggered.connect(imageViewer.rlc_decompress)
+        self.Action_Huffman_RLC_Compress.triggered.connect(imageViewer.huffman_rlc_compress)
+        self.Action_Huffman_RLC_Decompress.triggered.connect(imageViewer.huffman_rlc_decompress)
+        self.Action_JPEG_Compress.triggered.connect(imageViewer.jpeg_compress)
+
         self.setCentralWidget(imageViewer)
 
     @staticmethod

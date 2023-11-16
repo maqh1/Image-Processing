@@ -50,6 +50,47 @@ class ParametersInputDialog(QDialog):
         else:
             return None
 
+class AccuracyInputDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("参数输入")
+        self.layout = QVBoxLayout(self)
+
+        self.form_layout = QFormLayout()
+
+        self.accuracy_edit = QLineEdit(self)
+        self.form_layout.addRow("精度 (1-99):", self.accuracy_edit)
+
+        self.layout.addLayout(self.form_layout)
+
+        self.button = QPushButton("获取参数", self)
+        self.button.clicked.connect(self.get_accuracy)
+        self.layout.addWidget(self.button)
+
+    def get_accuracy(self):
+        accuracy = self.accuracy_edit.text()
+        # 检查输入是否为整数
+        try:
+            accuracy = int(accuracy)
+        except ValueError:
+            QMessageBox.critical(self, "输入错误", "请输入有效的整数。")
+            return None
+        # 检查范围
+        if not (1 <= accuracy <= 99):
+            QMessageBox.critical(self, "输入错误", "请确保输入在有效的范围内。")
+            return None
+        self.accept()
+        return accuracy
+
+    @staticmethod
+    def get_accuracy_static():
+        dialog = AccuracyInputDialog()
+        result = dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            return dialog.get_accuracy()
+        else:
+            return None
+
 class MainWindow(QMainWindow):
     # 测试类
     def __init__(self):
