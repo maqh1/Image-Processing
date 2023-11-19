@@ -1,6 +1,5 @@
 import heapq
 import pickle
-import random
 
 import cv2
 import numpy as np
@@ -11,7 +10,6 @@ from PyQt6.QtCore import QObject, QDateTime, Qt, QPointF
 from PyQt6.QtGui import QImage, QColor, qRgb, qGray, QPixmap, QFont, QPainter, qRed, qGreen, qBlue, qAlpha
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget, QVBoxLayout, QLabel, QScrollArea, QLineEdit, QPushButton, \
     QHBoxLayout, QCheckBox, QComboBox
-from matplotlib import pyplot as plt
 from scipy.signal import convolve2d
 from scipy.spatial import KDTree
 from sympy import symbols, sympify, lambdify
@@ -2647,7 +2645,8 @@ class ImageOperator:
             elif self.combo_box.currentIndex() == 3:
                 result = ImageOperator.Filter.universal_convolve(image_array, np.array(
                     [[0, 0, -1, 0, 0], [0, -1, -2, -1, 0], [-1, -2, 16, -2, -1], [0, -1, -2, -1, 0], [0, 0, -1, 0, 0]]))
-            # image_array = ImageOperator.ImageProcessorWidget.normalize(image_array)
+
+            # result = ImageOperator.ImageProcessorWidget.normalize(result)
 
             if not flag:
                 return result

@@ -4,12 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="29ce7536-30c0-4bdd-a9ac-4ef400b562ff" name="更改" comment="压缩了exe，使其大小符合github要求">
-      <change afterPath="$PROJECT_DIR$/测试图片/轮廓提取(阈值为0.1).png" afterDir="false" />
+    <list default="true" id="29ce7536-30c0-4bdd-a9ac-4ef400b562ff" name="更改" comment="更新了轮廓提取和图像压缩">
+      <change afterPath="$PROJECT_DIR$/测试图片/pic.huffman" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/测试图片/preview.huffman" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/测试图片/亮度增大100（新版）.huffman" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/测试图片/亮度增大100（新版）.huffman_rlc" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/测试图片/轮廓提取(阈值为0.huffman" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/测试图片/霍夫算法.huffman" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FileManager.py" beforeDir="false" afterPath="$PROJECT_DIR$/FileManager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MainWindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainWindow.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -84,6 +87,11 @@
       <recent name="E:\Project\python\paragraphs" />
     </key>
   </component>
+  <component name="RunAnythingCache">
+    <option name="myCommands">
+      <command value="convovle2d" />
+    </option>
+  </component>
   <component name="RunManager" selected="Python.main">
     <configuration name="Dialog" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="paragraphs" />
@@ -141,6 +149,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
@@ -212,6 +221,7 @@
       <workItem from="1697010852891" duration="214000" />
       <workItem from="1698032631886" duration="2000" />
       <workItem from="1698131142483" duration="14000" />
+      <workItem from="1700186948371" duration="66000" />
     </task>
     <task id="LOCAL-00001" summary="提交">
       <option name="closed" value="true" />
@@ -357,7 +367,15 @@
       <option name="project" value="LOCAL" />
       <updated>1698582854231</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="更新了轮廓提取和图像压缩">
+      <option name="closed" value="true" />
+      <created>1700103216995</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1700103216995</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -389,6 +407,7 @@
     <MESSAGE value="重写了canny算法" />
     <MESSAGE value="更新了exe和requirements" />
     <MESSAGE value="压缩了exe，使其大小符合github要求" />
-    <option name="LAST_COMMIT_MESSAGE" value="压缩了exe，使其大小符合github要求" />
+    <MESSAGE value="更新了轮廓提取和图像压缩" />
+    <option name="LAST_COMMIT_MESSAGE" value="更新了轮廓提取和图像压缩" />
   </component>
 </project>
